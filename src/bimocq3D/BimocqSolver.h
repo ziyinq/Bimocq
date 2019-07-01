@@ -1,8 +1,8 @@
 #ifndef IVOCK_BIMOCQSOLVER_H
 #define IVOCK_BIMOCQSOLVER_H
-#include "array.h"
+#include "../include/array.h"
 #include "tbb/tbb.h"
-#include "fluid_buffer3D.h"
+#include "../include/fluid_buffer3D.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstdlib>
@@ -10,16 +10,16 @@
 #include <iostream>
 #include <cstdio>
 #include <string>
-#include "vec.h"
-#include "pcg_solver.h"
-#include "array3.h"
-#include "GeometricLevelGen.h"
+#include "../include/vec.h"
+#include "../utils/pcg_solver.h"
+#include "../include/array3.h"
+#include "../utils/GeometricLevelGen.h"
 #include "GPU_Advection.h"
 #include <chrono>
-#include "color_macro.h"
+#include "../utils/color_macro.h"
 #include "Mapping.h"
-#include "AlgebraicMultigrid.h"
-#include "volumeMeshTools.h"
+#include "../utils/AlgebraicMultigrid.h"
+#include "../utils/volumeMeshTools.h"
 
 using namespace std;
 

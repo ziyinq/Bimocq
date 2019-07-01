@@ -8,7 +8,7 @@
 // non-positive, and row sums are non-negative).
 
 #include <cmath>
-#include "sparse_matrix.h"
+#include "../include/sparse_matrix.h"
 #include "blas_wrapper.h"
 
 //============================================================================

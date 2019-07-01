@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 #include "tbb/tbb.h"
-#include "util.h"
+#include "../utils/util.h"
 
 //============================================================================
 // Dynamic compressed sparse row matrix.

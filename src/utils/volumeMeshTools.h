@@ -1,7 +1,7 @@
 #ifndef BIMOCQ_VOLUMETOOLS_H
 #define BIMOCQ_VOLUMETOOLS_H
 
-#include "vec.h"
+#include "../include/vec.h"
 #include <openvdb/math/Math.h>
 #include <openvdb/openvdb.h>
 #include <openvdb/Exceptions.h>

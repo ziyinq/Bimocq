@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
-#include "util.h"
+#include "../utils/util.h"
 // Defines a thin wrapper around fixed size C-style arrays, using template parameters,
 // which is useful for dealing with vectors of different dimensions.
 // For example, float[3] is equivalent to Vec<3,float>.

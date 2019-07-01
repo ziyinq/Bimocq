@@ -1,5 +1,5 @@
 #include <cmath>
-#include "array.h"
+#include "../include/array.h"
 #include <iostream>
 #include "GPU_Advection.h"
 #include "BimocqSolver.h"

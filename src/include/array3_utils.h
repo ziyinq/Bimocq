@@ -3,7 +3,7 @@
 
 #include "vec.h"
 #include "array3.h"
-#include "util.h"
+#include "../utils/util.h"
 
 template<class S, class T>
 T interpolate_value(const Vec<3,S>& point, const Array3<T, Array1<T> >& grid) {

@@ -4,9 +4,9 @@
 #include <iostream>
 #include <vector>
 #include "tbb/tbb.h"
-#include "vec.h"
+#include "../include/vec.h"
 #include <cmath>
-#include "sparse_matrix.h"
+#include "../include/sparse_matrix.h"
 #include "blas_wrapper.h"
 #include "GeometricLevelGen.h"
 #include "pcg_solver.h"

@@ -11,7 +11,7 @@
 #include <cuda_profiler_api.h>
 #include <helper_cuda.h>
 #include <iostream>
-#include "fluid_buffer3D.h"
+#include "../include/fluid_buffer3D.h"
 #include <tbb/tbb.h>
 
 extern "C" void gpu_solve_forward(float *u, float *v, float *w,

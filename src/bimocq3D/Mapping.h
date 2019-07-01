@@ -4,8 +4,8 @@
 #include <iostream>
 #include <cstdint>
 #include "tbb/tbb.h"
-#include "color_macro.h"
-#include "fluid_buffer3D.h"
+#include "../utils/color_macro.h"
+#include "../include/fluid_buffer3D.h"
 #include "GPU_Advection.h"
 
 // two level BIMOCQ advector

@@ -5,9 +5,9 @@
 #include <vector>
 #include <unordered_map>
 #include "tbb/tbb.h"
-#include "vec.h"
+#include "../include/vec.h"
 #include <cmath>
-#include "sparse_matrix.h"
+#include "../include/sparse_matrix.h"
 #include "blas_wrapper.h"
 
 using namespace std;
