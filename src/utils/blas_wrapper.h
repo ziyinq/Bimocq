@@ -9,6 +9,22 @@
 namespace BLAS{
 
 // dot products ==============================================================
+inline double mean(const std::vector<double> &x)
+{
+    double sum = 0;
+    for (size_t i = 0;i < x.size();i++)
+    {
+        sum += x[i];
+    }
+    return sum / (double)x.size();
+}
+inline void subtractConst(std::vector<double> &x, const double a)
+{
+    size_t num = x.size();
+    tbb::parallel_for((size_t)0, (size_t)num, (size_t)1, [&](size_t i) {
+        x[i] -= a;
+    });
+}
 
 inline double dot(const std::vector<double> &x, const std::vector<double> &y)
 { 

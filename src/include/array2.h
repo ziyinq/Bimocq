@@ -7,6 +7,7 @@
 #include <vector>
 
 template<class T, class ArrayT=std::vector<T> >
+//template<class T, class ArrayT=Array1<T> >
 struct Array2
 {
    // STL-friendly typedefs
@@ -62,7 +63,26 @@ struct Array2
    Array2(Array2<T, OtherArrayT>& other)
       : ni(other.ni), nj(other.nj), a(other.a)
    {}
-
+    Array2<T> operator-=(const Array2<T> &x)
+    {
+       a -= x.a;
+       return *this;
+    }
+    Array2<T> operator+=(const Array2<T> &x)
+    {
+       a += x.a;
+       return *this;
+    }
+    Array2<T> operator*=(const T &c)
+    {
+       a *= c;
+       return *this;
+    }
+    Array2<T> operator/=(const Array2<T> &x)
+    {
+       a /= x.a;
+       return *this;
+    }
    ~Array2(void)
    {
 #ifndef NDEBUG
@@ -249,6 +269,19 @@ struct Array2
 
    void trim(void)
    { a.trim(); }
+
+   T& boundedAt(int i, int j)
+   {
+    i = std::min(std::max(i, 0), ni-1);
+    j = std::min(std::max(j, 0), nj-1);
+    return a[i + ni*j];
+   }
+   const T& boundedAt(int i, int j) const
+   {
+    i = std::min(std::max(i, 0), ni-1);
+    j = std::min(std::max(j, 0), nj-1);
+    return a[i + ni*j];
+   }
 };
 
 // some common arrays

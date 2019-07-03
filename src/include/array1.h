@@ -134,7 +134,38 @@ struct Array1
       max_n=x.n;
       std::memcpy(data, x.data, n*sizeof(T));
    }
-
+    Array1<T> operator-=(const Array1<T> &x)
+    {
+       tbb::parallel_for((int)0,(int)x.n,(int)1,[&](int i)
+       {
+           data[i] -= x.data[i];
+       });
+       return *this;
+    }
+    Array1<T> operator+=(const Array1<T> &x)
+    {
+       tbb::parallel_for((int)0,(int)x.n,(int)1,[&](int i)
+       {
+           data[i] += x.data[i];
+       });
+       return *this;
+    }
+   Array1<T> operator*=(const T &c)
+   {
+       tbb::parallel_for((int)0,(int)n,(int)1,[&](int i)
+       {
+           data[i] *= c;
+       });
+       return *this;
+   }
+   Array1<T> operator/=(const Array1<T> &x)
+   {
+      tbb::parallel_for((int)0,(int)n,(int)1,[&](int i)
+      {
+          data[i] /= x.data[i];
+      });
+      return *this;
+   }
    ~Array1(void)
    {
       std::free(data);

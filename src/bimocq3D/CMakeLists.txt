@@ -22,9 +22,9 @@ set(SOURCE_FILES
         BimocqSolver.cpp
         )
 
-cuda_add_executable(BiMocq ${SOURCE_FILES})
-target_link_libraries(BiMocq  ${TBB_LIBRARIES})
-target_link_libraries(BiMocq  ${OPENVDB_LIBRARIES})
-target_link_libraries(BiMocq  Half)
-target_link_libraries(BiMocq ${Boost_LIBRARIES})
-target_link_libraries(BiMocq rt ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libcudart_static.a)
+cuda_add_executable(BiMocq3D ${SOURCE_FILES})
+target_link_libraries(BiMocq3D  ${TBB_LIBRARIES})
+target_link_libraries(BiMocq3D  ${OPENVDB_LIBRARIES})
+target_link_libraries(BiMocq3D  Half)
+target_link_libraries(BiMocq3D ${Boost_LIBRARIES})
+target_link_libraries(BiMocq3D rt ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libcudart_static.a)

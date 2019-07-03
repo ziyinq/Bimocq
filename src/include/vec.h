@@ -198,7 +198,7 @@ T mag2(const Vec<N,T> &a)
 
 template<unsigned int N, class T>
 T mag(const Vec<N,T> &a)
-{ return sqrt(mag2(a)); }
+{ return sqrt(mag2(a))+1e-6; }
 
 template<unsigned int N, class T>
 inline T dist2(const Vec<N,T> &a, const Vec<N,T> &b)
