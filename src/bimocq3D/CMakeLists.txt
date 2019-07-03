@@ -17,7 +17,6 @@ target_link_libraries(cuda_lib ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libcudart_static.a
 set(SOURCE_FILES
         main.cpp
         GPU_kernel.cu
-        ../utils/GeometricLevelGen.cpp
         Mapping.cpp
         BimocqSolver.cpp
         )

@@ -1,8 +1,5 @@
-
-
-#ifndef IVOCK_GPU_ADVECTION_H
-#define IVOCK_GPU_ADVECTION_H
-
+#ifndef GPU_ADVECTION_H
+#define GPU_ADVECTION_H
 
 #include <cstdio>
 
@@ -346,4 +343,4 @@ public:
     }
 };
 
-#endif //IVOCK_GPU_ADVECTION_H
+#endif //GPU_ADVECTION_H

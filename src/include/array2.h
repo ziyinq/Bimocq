@@ -6,8 +6,8 @@
 #include <cassert>
 #include <vector>
 
-template<class T, class ArrayT=std::vector<T> >
-//template<class T, class ArrayT=Array1<T> >
+//template<class T, class ArrayT=std::vector<T> >
+template<class T, class ArrayT=Array1<T> >
 struct Array2
 {
    // STL-friendly typedefs

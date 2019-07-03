@@ -1,9 +1,5 @@
-//
-// Created by ziyin on 18-10-3.
-//
-
-#ifndef DEEPSIM_CMAPFLUID2D_H
-#define DEEPSIM_CMAPFLUID2D_H
+#ifndef BIMOCQSOLVER2D_H
+#define BIMOCQSOLVER2D_H
 #include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -12,32 +8,11 @@
 #include "tbb/tbb.h"
 #include "../include/array2.h"
 #include "../include/vec.h"
-#include "AlgebraicMultigrid.h"
-#include "GeometricLevelGen.h"
+#include "../utils/AlgebraicMultigrid.h"
+#include "../utils/GeometricLevelGen.h"
 #include "../utils/writeBMP.h"
 #include "../utils/visualize.h"
-
-#define PI 3.141592653
-
-
-#define RESET   "\033[0m"
-#define BLACK   "\033[30m"      /* Black */
-#define RED     "\033[31m"      /* Red */
-#define GREEN   "\033[32m"      /* Green */
-#define YELLOW  "\033[33m"      /* Yellow */
-#define BLUE    "\033[34m"      /* Blue */
-#define MAGENTA "\033[35m"      /* Magenta */
-#define CYAN    "\033[36m"      /* Cyan */
-#define WHITE   "\033[37m"      /* White */
-#define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
-#define BOLDRED     "\033[1m\033[31m"      /* Bold Red */
-#define BOLDGREEN   "\033[1m\033[32m"      /* Bold Green */
-#define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
-#define BOLDBLUE    "\033[1m\033[34m"      /* Bold Blue */
-#define BOLDMAGENTA "\033[1m\033[35m"      /* Bold Magenta */
-#define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
-#define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
-
+#include "../utils/color_macro.h"
 
 struct mat2x2{
     double v[4];
@@ -197,15 +172,15 @@ public:
     }
 };
 
-class cmapFluid2D {
+class BimocqSolver2D {
 public:
     void clampPos(Vec2f &pos)
     {
         pos[0] = min(max(h, pos[0]),(float)ni*h-h);
         pos[1] = min(max(h, pos[1]),(float)nj*h-h);
     }
-    cmapFluid2D() {};
-    ~cmapFluid2D() {};
+    BimocqSolver2D() {};
+    ~BimocqSolver2D() {};
     int ni, nj;
     void diffuseField(float nu, float dt, Array2f &field);
     inline	float lerp(float v0, float v1, float c);
@@ -529,4 +504,4 @@ public:
     int rho_lastremeshing = 0;
 };
 
-#endif //DEEPSIM_CMAPFLUID2D_H
+#endif //BIMOCQSOLVER2D_H

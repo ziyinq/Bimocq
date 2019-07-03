@@ -1,11 +1,7 @@
-//
-// Created by ziyin on 18-10-3.
-//
-
-#include "cmapFluid2D.h"
+#include "BimocqSolver2D.h"
 #define ziyin false
 
-inline Vec2f cmapFluid2D::traceRK3(float dt, Vec2f &pos)
+inline Vec2f BimocqSolver2D::traceRK3(float dt, Vec2f &pos)
 {
 
 	float c1 = 2.0 / 9.0*dt, c2 = 3.0 / 9.0 * dt, c3 = 4.0 / 9.0 * dt;
@@ -22,7 +18,7 @@ inline Vec2f cmapFluid2D::traceRK3(float dt, Vec2f &pos)
 	return input;
 }
 
-inline Vec2f cmapFluid2D::solveODE(float dt, Vec2f &pos)
+inline Vec2f BimocqSolver2D::solveODE(float dt, Vec2f &pos)
 {
     float ddt = dt;
     Vec2f pos1 = traceRK3(ddt, pos);
@@ -46,7 +42,7 @@ inline Vec2f cmapFluid2D::solveODE(float dt, Vec2f &pos)
     return pos2;
 }
 
-inline Vec2f cmapFluid2D::solveODEDMC(float dt, Vec2f &pos)
+inline Vec2f BimocqSolver2D::solveODEDMC(float dt, Vec2f &pos)
 {
     Vec2f a = calculateA(pos, h);
     Vec2f opos=pos;
@@ -65,7 +61,7 @@ inline Vec2f cmapFluid2D::solveODEDMC(float dt, Vec2f &pos)
     return opos;
 }
 
-inline Vec2f cmapFluid2D::solveODEDMCF(float dt, Vec2f &pos)
+inline Vec2f BimocqSolver2D::solveODEDMCF(float dt, Vec2f &pos)
 {
     Vec2f a = calculateAF(pos, h);
     Vec2f opos=pos;
@@ -73,12 +69,12 @@ inline Vec2f cmapFluid2D::solveODEDMCF(float dt, Vec2f &pos)
     return opos;
 }
 
-void cmapFluid2D::getCFL()
+void BimocqSolver2D::getCFL()
 {
     _cfl = h / fabs(maxVel());
 }
 
-inline Vec2f cmapFluid2D::traceDMC(float dt, Vec2f &pos, Vec2f &a)
+inline Vec2f BimocqSolver2D::traceDMC(float dt, Vec2f &pos, Vec2f &a)
 {
     Vec2f vel = getVelocity(pos);
     float new_x = pos[0] - dt*vel[0];
@@ -91,7 +87,7 @@ inline Vec2f cmapFluid2D::traceDMC(float dt, Vec2f &pos, Vec2f &a)
     return Vec2f(new_x, new_y);
 }
 
-inline Vec2f cmapFluid2D::traceDMCF(float dt, Vec2f &pos, Vec2f &a)
+inline Vec2f BimocqSolver2D::traceDMCF(float dt, Vec2f &pos, Vec2f &a)
 {
     Vec2f vel = getVelocity(pos);
     float new_x = pos[0] + dt*vel[0];
@@ -104,17 +100,17 @@ inline Vec2f cmapFluid2D::traceDMCF(float dt, Vec2f &pos, Vec2f &a)
     return Vec2f(new_x, new_y);
 }
 
-inline float cmapFluid2D::lerp(float v0, float v1, float c)
+inline float BimocqSolver2D::lerp(float v0, float v1, float c)
 {
     return (1-c)*v0+c*v1;
 }
 
-inline float cmapFluid2D::bilerp(float v00, float v01, float v10, float v11, float cx, float cy)
+inline float BimocqSolver2D::bilerp(float v00, float v01, float v10, float v11, float cx, float cy)
 {
     return lerp(lerp(v00,v01,cx), lerp(v10,v11,cx),cy);
 }
 
-Vec2f cmapFluid2D::calculateA(Vec2f pos, float h)
+Vec2f BimocqSolver2D::calculateA(Vec2f pos, float h)
 {
     Vec2f vel = getVelocity(pos);
     float new_x = (vel[0] > 0)? pos[0]-h : pos[0]+h;
@@ -126,7 +122,7 @@ Vec2f cmapFluid2D::calculateA(Vec2f pos, float h)
     return Vec2f(a_x, a_y);
 }
 
-Vec2f cmapFluid2D::calculateAF(Vec2f pos, float h)
+Vec2f BimocqSolver2D::calculateAF(Vec2f pos, float h)
 {
     Vec2f vel = getVelocity(pos);
     float new_x = (vel[0] > 0)? pos[0]+h : pos[0]-h;
@@ -138,7 +134,7 @@ Vec2f cmapFluid2D::calculateAF(Vec2f pos, float h)
     return Vec2f(a_x, a_y);
 }
 
-void cmapFluid2D::semiLagAdvectDMC(const Array2f &src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y)
+void BimocqSolver2D::semiLagAdvectDMC(const Array2f &src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y)
 {
     tbb::parallel_for((int)0,
                       (int)(ni*nj),
@@ -155,7 +151,7 @@ void cmapFluid2D::semiLagAdvectDMC(const Array2f &src, Array2f & dst, float dt, 
 }
 
 
-void cmapFluid2D::semiLagAdvect(const Array2f & src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y)
+void BimocqSolver2D::semiLagAdvect(const Array2f & src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y)
 {
     tbb::parallel_for((int)0,
                       (int)(ni*nj),
@@ -170,7 +166,7 @@ void cmapFluid2D::semiLagAdvect(const Array2f & src, Array2f & dst, float dt, in
                       });
 }
 
-void cmapFluid2D::semiLagAdvect_fmap(const Array2f &srcx, const Array2f &srcy, Array2f &dstx, Array2f &dsty, float dt, int ni, int nj, float off_x, float off_y)
+void BimocqSolver2D::semiLagAdvect_fmap(const Array2f &srcx, const Array2f &srcy, Array2f &dstx, Array2f &dsty, float dt, int ni, int nj, float off_x, float off_y)
 {
     tbb::parallel_for((int)0,
                       (int)(ni*nj),
@@ -186,7 +182,7 @@ void cmapFluid2D::semiLagAdvect_fmap(const Array2f &srcx, const Array2f &srcy, A
                       });
 }
 
-void cmapFluid2D::semiLagAdvect_correct(const Array2f & src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y, const Array2f &diff_x, const Array2f &diff_y)
+void BimocqSolver2D::semiLagAdvect_correct(const Array2f & src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y, const Array2f &diff_x, const Array2f &diff_y)
 {
     tbb::parallel_for((int)0,
                       (int)(ni*nj),
@@ -203,7 +199,7 @@ void cmapFluid2D::semiLagAdvect_correct(const Array2f & src, Array2f & dst, floa
 
 }
 
-void cmapFluid2D::solveAdvection(float dt)
+void BimocqSolver2D::solveAdvection(float dt)
 {
     u_temp.assign(ni + 1, nj, 0.0f);
     v_temp.assign(ni, nj + 1, 0.0f);
@@ -212,7 +208,7 @@ void cmapFluid2D::solveAdvection(float dt)
     u.assign(ni + 1, nj, u_temp.a.data);
     v.assign(ni, nj + 1, v_temp.a.data);
 }
-void cmapFluid2D::clampExtrema(Array2f &src, Array2f &dst,float dt, float offsetx, float offsety) {
+void BimocqSolver2D::clampExtrema(Array2f &src, Array2f &dst,float dt, float offsetx, float offsety) {
     tbb::parallel_for((int)0, (dst.ni)*dst.nj, 1, [&](int tIdx)
     {
         int i = tIdx%(dst.ni);
@@ -233,7 +229,7 @@ void cmapFluid2D::clampExtrema(Array2f &src, Array2f &dst,float dt, float offset
             dst(i,j) = sampleField(newpos-h*Vec2f(offsetx,offsety),src);
     });
 }
-void cmapFluid2D::solveMaccormack(const Array2f &src, Array2f &dst, Array2f & aux, float dt, int ni, int nj, float offsetx, float offsety)
+void BimocqSolver2D::solveMaccormack(const Array2f &src, Array2f &dst, Array2f & aux, float dt, int ni, int nj, float offsetx, float offsety)
 {
     semiLagAdvect(src, dst, dt, ni, nj, offsetx, offsety);
     semiLagAdvect(dst, aux, -dt, ni, nj, offsetx, offsety);
@@ -258,7 +254,7 @@ void cmapFluid2D::solveMaccormack(const Array2f &src, Array2f &dst, Array2f & au
     });
 }
 
-void cmapFluid2D::solveBFECC(const Array2f &src, Array2f &dst, Array2f &aux, float dt, int ni, int nj, float offsetx, float offsety)
+void BimocqSolver2D::solveBFECC(const Array2f &src, Array2f &dst, Array2f &aux, float dt, int ni, int nj, float offsetx, float offsety)
 {
     semiLagAdvect(src, dst, dt, ni, nj, offsetx, offsety);
     semiLagAdvect(dst, aux, -dt, ni, nj, offsetx, offsety);
@@ -289,7 +285,7 @@ void cmapFluid2D::solveBFECC(const Array2f &src, Array2f &dst, Array2f &aux, flo
     });
 }
 
-void cmapFluid2D::solveAdvectionCmap()
+void BimocqSolver2D::solveAdvectionCmap()
 {
     //we should instead solveAdvection use characteristic mapping
     //  for all particle
@@ -376,7 +372,7 @@ void cmapFluid2D::solveAdvectionCmap()
     );
 }
 
-void cmapFluid2D::applyBouyancyForce(float dt)
+void BimocqSolver2D::applyBouyancyForce(float dt)
 {
     tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
     {
@@ -392,7 +388,7 @@ void cmapFluid2D::applyBouyancyForce(float dt)
     });
 }
 
-void cmapFluid2D::applyForce()
+void BimocqSolver2D::applyForce()
 {
     for (int i =8; i<=18; i++)
     {
@@ -403,7 +399,7 @@ void cmapFluid2D::applyForce()
     }
 }
 
-void cmapFluid2D::projection(float tol, bool bc)
+void BimocqSolver2D::projection(float tol, bool bc)
 {
     applyVelocityBoundary();
     rhs.assign(ni*nj, 0.0);
@@ -442,7 +438,7 @@ void cmapFluid2D::projection(float tol, bool bc)
 //    nostickBC();
 }
 
-void cmapFluid2D::advance(float dt, int currentframe, int emitframe, unsigned char* boundary)
+void BimocqSolver2D::advance(float dt, int currentframe, int emitframe, unsigned char* boundary)
 {
     s_temp.assign(ni, nj, 0.0f);
     semiLagAdvect(rho, s_temp, dt, ni, nj, 0.5, 0.5);
@@ -458,7 +454,7 @@ void cmapFluid2D::advance(float dt, int currentframe, int emitframe, unsigned ch
 
 }
 
-void cmapFluid2D::advanceReflection(float dt, int currentframe, int emitframe, unsigned char *boundary)
+void BimocqSolver2D::advanceReflection(float dt, int currentframe, int emitframe, unsigned char *boundary)
 {
     // advect rho
     Array2f rho_first;
@@ -534,7 +530,7 @@ void cmapFluid2D::advanceReflection(float dt, int currentframe, int emitframe, u
 //    temperature.assign(ni, nj, s_temp.a.data);
 }
 
-void cmapFluid2D::advanceGridCmap(float dt, int currentframe, int emitframe, unsigned char* boundary)
+void BimocqSolver2D::advanceGridCmap(float dt, int currentframe, int emitframe, unsigned char* boundary)
 {
 	grid_tempx.assign(ni, nj, 0.0f);
 	grid_tempy.assign(ni, nj, 0.0f);
@@ -614,7 +610,7 @@ void cmapFluid2D::advanceGridCmap(float dt, int currentframe, int emitframe, uns
     });
 
 }
-void cmapFluid2D::nostickBC()
+void BimocqSolver2D::nostickBC()
 {
 
     tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
@@ -672,7 +668,7 @@ void cmapFluid2D::nostickBC()
     }
     );
 }
-double cmapFluid2D::computeEnergy()
+double BimocqSolver2D::computeEnergy()
 {
     double e=0;
     for(int i=0;i<u.a.n;i++)
@@ -682,7 +678,7 @@ double cmapFluid2D::computeEnergy()
     return e ;
 }
 
-float cmapFluid2D::estimateDistortion(Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y)
+float BimocqSolver2D::estimateDistortion(Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y)
 {
     float d = 0;
     int idx_i = 0;
@@ -737,7 +733,7 @@ float cmapFluid2D::estimateDistortion(Array2f &back_x, Array2f &back_y, Array2f 
     return d;
 }
 
-float cmapFluid2D::estimateDistortionFace()
+float BimocqSolver2D::estimateDistortionFace()
 {
     float sum = 0;
     float d = 0;
@@ -790,7 +786,7 @@ float cmapFluid2D::estimateDistortionFace()
     return d;
 }
 
-float cmapFluid2D::maxVel()
+float BimocqSolver2D::maxVel()
 {
     float vel=0;
     int idx_i = 0;
@@ -818,7 +814,7 @@ float cmapFluid2D::maxVel()
 
 }
 
-void cmapFluid2D::correctD(float c)
+void BimocqSolver2D::correctD(float c)
 {
     Array2f temp_u;
     Array2f temp_v;
@@ -868,7 +864,7 @@ void cmapFluid2D::correctD(float c)
     });
 }
 
-void cmapFluid2D::correctRhoRemapping(Array2f &semi_rho, Array2f &semi_T, Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y)
+void BimocqSolver2D::correctRhoRemapping(Array2f &semi_rho, Array2f &semi_T, Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y)
 {
     Array2f rho_curr = rho;
     Array2f T_curr = temperature;
@@ -973,7 +969,7 @@ void cmapFluid2D::correctRhoRemapping(Array2f &semi_rho, Array2f &semi_T, Array2
     clampExtrema2(ni,nj,T_curr,temperature);
 }
 
-void cmapFluid2D::correctVelRemapping(Array2f &semi_u, Array2f &semi_v)
+void BimocqSolver2D::correctVelRemapping(Array2f &semi_u, Array2f &semi_v)
 {
     Array2f u_curr = u;
     Array2f v_curr = v;
@@ -1074,7 +1070,7 @@ void cmapFluid2D::correctVelRemapping(Array2f &semi_u, Array2f &semi_v)
     clampExtrema2(ni, nj+1, v_curr, v);
 }
 
-void cmapFluid2D::advectVelocity(bool db, Array2f &semi_u, Array2f &semi_v)
+void BimocqSolver2D::advectVelocity(bool db, Array2f &semi_u, Array2f &semi_v)
 {
 //        float w[5] = {0.f,0.f,0.f,0.f,1.0f};
     float w[5] = {0.125f,0.125f,0.125f,0.125f,0.5f};
@@ -1169,7 +1165,7 @@ void cmapFluid2D::advectVelocity(bool db, Array2f &semi_u, Array2f &semi_v)
     });
 }
 
-void cmapFluid2D::advectRho(bool db, Array2f &semi_rho, Array2f &semi_T, Array2f &back_x, Array2f &back_y)
+void BimocqSolver2D::advectRho(bool db, Array2f &semi_rho, Array2f &semi_T, Array2f &back_x, Array2f &back_y)
 {
 //        float w[5] = {0.f,0.f,0.f,0.f,1.0f};
     float w[5] = {0.125f,0.125f,0.125f,0.125f,0.5f};
@@ -1248,7 +1244,7 @@ void cmapFluid2D::advectRho(bool db, Array2f &semi_rho, Array2f &semi_T, Array2f
     });
 }
 
-void cmapFluid2D::cumulateVelocity(float c, bool correct)
+void BimocqSolver2D::cumulateVelocity(float c, bool correct)
 {
     //    float w[5] = {0.f,0.f,0.f,0.f,1.0f};
     float w[5] = {0.125f,0.125f,0.125f,0.125f,0.5f};
@@ -1398,7 +1394,7 @@ void cmapFluid2D::cumulateVelocity(float c, bool correct)
     });
 }
 
-void cmapFluid2D::advanceFGCmap2(float dt, int currentframe)
+void BimocqSolver2D::advanceFGCmap2(float dt, int currentframe)
 {
     getCFL();
     if (currentframe != 0)
@@ -1595,7 +1591,7 @@ void cmapFluid2D::advanceFGCmap2(float dt, int currentframe)
 
 }
 
-void cmapFluid2D::updateForward(float dt, Array2f &fwd_x, Array2f &fwd_y)
+void BimocqSolver2D::updateForward(float dt, Array2f &fwd_x, Array2f &fwd_y)
 {
     grid_x_new = fwd_x;
     grid_y_new = fwd_y;
@@ -1611,7 +1607,7 @@ void cmapFluid2D::updateForward(float dt, Array2f &fwd_x, Array2f &fwd_y)
     });
 }
 
-void cmapFluid2D::updateBackward(float dt, Array2f &back_x, Array2f &back_y)
+void BimocqSolver2D::updateBackward(float dt, Array2f &back_x, Array2f &back_y)
 {
     // backward mapping
     float substep = _cfl;
@@ -1629,7 +1625,7 @@ void cmapFluid2D::updateBackward(float dt, Array2f &back_x, Array2f &back_y)
         t += substep;
     }
 }
-void cmapFluid2D::clampExtrema2(int _ni, int _nj, Array2f &before, Array2f &after)
+void BimocqSolver2D::clampExtrema2(int _ni, int _nj, Array2f &before, Array2f &after)
 {
     tbb::parallel_for((int) 0, (_ni) * _nj, 1, [&](int tIdx) {
         int i = tIdx % (_ni);
@@ -1644,7 +1640,7 @@ void cmapFluid2D::clampExtrema2(int _ni, int _nj, Array2f &before, Array2f &afte
     });
 }
 
-void cmapFluid2D::advanceFGCdecouple(float dt, int currentframe, int emitframe)
+void BimocqSolver2D::advanceFGCdecouple(float dt, int currentframe, int emitframe)
 {
     getCFL();
     if (currentframe != 0)
@@ -1765,7 +1761,7 @@ void cmapFluid2D::advanceFGCdecouple(float dt, int currentframe, int emitframe)
 
 }
 
-void cmapFluid2D::cumulateScalar(Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y, bool correct)
+void BimocqSolver2D::cumulateScalar(Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y, bool correct)
 {
     float w[5] = {0.125f,0.125f,0.125f,0.125f,0.5f};
     Array2f temp_scalar;
@@ -1915,7 +1911,7 @@ void cmapFluid2D::cumulateScalar(Array2f &back_x, Array2f &back_y, Array2f &fwd_
     });
 }
 
-void cmapFluid2D::initFGCmap2(int nx, int ny, int N)
+void BimocqSolver2D::initFGCmap2(int nx, int ny, int N)
 {
     ni = nx;nj=ny;
     grid_x.resize(nx, ny);
@@ -1997,7 +1993,7 @@ void cmapFluid2D::initFGCmap2(int nx, int ny, int N)
     grid_yscalar = grid_y;
 }
 
-void cmapFluid2D::resampleFGCmap2(float dt, Array2f &du_last, Array2f dv_last)
+void BimocqSolver2D::resampleFGCmap2(float dt, Array2f &du_last, Array2f dv_last)
 {
     total_resampleCount++;
     std::cout<<"remeshing!\n";
@@ -2034,7 +2030,7 @@ void cmapFluid2D::resampleFGCmap2(float dt, Array2f &du_last, Array2f dv_last)
 
 }
 
-void cmapFluid2D::resampleVelBuffer(float dt)
+void BimocqSolver2D::resampleVelBuffer(float dt)
 {
     std::cout<< RED << "velocity remeshing!\n" << RESET;
     total_resampleCount ++;
@@ -2052,7 +2048,7 @@ void cmapFluid2D::resampleVelBuffer(float dt)
     });
 }
 
-void cmapFluid2D::resampleRhoBuffer(float dt)
+void BimocqSolver2D::resampleRhoBuffer(float dt)
 {
     std::cout<< BLUE << "rho remeshing!\n" << RESET;
     total_rho_resample ++;
@@ -2070,7 +2066,7 @@ void cmapFluid2D::resampleRhoBuffer(float dt)
     });
 }
 
-void cmapFluid2D::backwardmap(const Array2f &xinit, const Array2f &yinit, const Array2f &xfwd, const Array2f &yfwd, Array2f & dstx, Array2f & dsty, float dt, int ni, int nj, float off_x, float off_y, int sample_num)
+void BimocqSolver2D::backwardmap(const Array2f &xinit, const Array2f &yinit, const Array2f &xfwd, const Array2f &yfwd, Array2f & dstx, Array2f & dsty, float dt, int ni, int nj, float off_x, float off_y, int sample_num)
 {
     tbb::parallel_for((int)0,
                       (int)(ni*nj),
@@ -2103,7 +2099,7 @@ void cmapFluid2D::backwardmap(const Array2f &xinit, const Array2f &yinit, const 
                       });
 }
 
-void cmapFluid2D::advanceFLIP(float dt, int currentframe, int emitframe)
+void BimocqSolver2D::advanceFLIP(float dt, int currentframe, int emitframe)
 {
     tbb::parallel_for((int)0, (int)cParticles.size(), 1, [&](int p)
     {
@@ -2172,7 +2168,7 @@ void cmapFluid2D::advanceFLIP(float dt, int currentframe, int emitframe)
     frameCount++;
 }
 
-void cmapFluid2D::advanceAPIC(float dt)
+void BimocqSolver2D::advanceAPIC(float dt)
 {
     tbb::parallel_for((int)0, (int)cParticles.size(), 1, [&](int p)
     {
@@ -2240,7 +2236,7 @@ void cmapFluid2D::advanceAPIC(float dt)
     });
 }
 
-void cmapFluid2D::advancePolyPIC(float dt)
+void BimocqSolver2D::advancePolyPIC(float dt)
 {
     tbb::parallel_for((int)0, (int)cParticles.size(), 1, [&](int p)
     {
@@ -2310,7 +2306,7 @@ void cmapFluid2D::advancePolyPIC(float dt)
         cParticles[i].C_y = cParticles[i].calculateCp(pos, v, h, ni, nj+1, 0.5, 0.0);
     });
 }
-void cmapFluid2D::diffuseField(float nu, float dt, Array2f &field)
+void BimocqSolver2D::diffuseField(float nu, float dt, Array2f &field)
 {
     Array2f field_temp;
     field_temp = field;
@@ -2351,7 +2347,7 @@ void cmapFluid2D::diffuseField(float nu, float dt, Array2f &field)
     }
     field = field_temp;
 }
-void cmapFluid2D::advanceCmap(float dt, int currentframe, int emitframe, unsigned char* boundary)
+void BimocqSolver2D::advanceCmap(float dt, int currentframe, int emitframe, unsigned char* boundary)
 {
 //    std::cout<<"----- Before Energy: "<< computeEnergy()<<std::endl;
     u_temp.resize(ni+1, nj);
@@ -2512,7 +2508,7 @@ void cmapFluid2D::advanceCmap(float dt, int currentframe, int emitframe, unsigne
 
 }
 
-void cmapFluid2D::advanceBFECC(float dt, int currentframe, int emitframe, unsigned char *boundary)
+void BimocqSolver2D::advanceBFECC(float dt, int currentframe, int emitframe, unsigned char *boundary)
 {
     u_first.assign(ni+1, nj, 0.0);
     v_first.assign(ni, nj+1, 0.0);
@@ -2525,7 +2521,7 @@ void cmapFluid2D::advanceBFECC(float dt, int currentframe, int emitframe, unsign
     projection(1e-6,true);
 }
 
-void cmapFluid2D::advanceMaccormack(float dt, int currentframe, int emitframe, unsigned char *boundary)
+void BimocqSolver2D::advanceMaccormack(float dt, int currentframe, int emitframe, unsigned char *boundary)
 {
     // advect rho
     Array2f rho_first;
@@ -2558,7 +2554,7 @@ void cmapFluid2D::advanceMaccormack(float dt, int currentframe, int emitframe, u
     projection(1e-6,true);
 }
 
-void cmapFluid2D::characteristicMap(float dt)
+void BimocqSolver2D::characteristicMap(float dt)
 {
     weight.assign(ni, nj, 1e-5);
     gridpos_x.assign(ni, nj, 0.);
@@ -2603,7 +2599,7 @@ void cmapFluid2D::characteristicMap(float dt)
     );
 }
 
-void cmapFluid2D::advectParticles(float dt)
+void BimocqSolver2D::advectParticles(float dt)
 {
     //for all particles
     tbb::parallel_for((int)0,
@@ -2622,7 +2618,7 @@ void cmapFluid2D::advectParticles(float dt)
     );
 }
 
-void cmapFluid2D::resampleParticle(int N)
+void BimocqSolver2D::resampleParticle(int N)
 {
     rho_init = rho;
     temp_init = temperature;
@@ -2631,7 +2627,7 @@ void cmapFluid2D::resampleParticle(int N)
     seedParticles(N);
 }
 
-void cmapFluid2D::resampleGrid()
+void BimocqSolver2D::resampleGrid()
 {
     u_init = u;
     v_init = v;
@@ -2649,7 +2645,7 @@ void cmapFluid2D::resampleGrid()
 	});
 }
 
-void cmapFluid2D::resampleFGCmap_cummulative()
+void BimocqSolver2D::resampleFGCmap_cummulative()
 {
     Array2f diff_u;
     Array2f diff_v;
@@ -2658,7 +2654,7 @@ void cmapFluid2D::resampleFGCmap_cummulative()
 
 }
 
-void cmapFluid2D::resampleFGCmap(float dt)
+void BimocqSolver2D::resampleFGCmap(float dt)
 {
     total_resampleCount++;
     std::cout<<"remeshing!\n";
@@ -2682,7 +2678,7 @@ void cmapFluid2D::resampleFGCmap(float dt)
 
 }
 
-void cmapFluid2D::seedParticles(int N)
+void BimocqSolver2D::seedParticles(int N)
 {
     cParticles.resize(N*N*ni*nj);
     tbb::parallel_for((int)0,
@@ -2714,7 +2710,7 @@ void cmapFluid2D::seedParticles(int N)
                       });
 }
 
-void cmapFluid2D::setBoundary(unsigned char *boundary)
+void BimocqSolver2D::setBoundary(unsigned char *boundary)
 {
     tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx) {
         int i = tIdx%ni;
@@ -2728,7 +2724,7 @@ void cmapFluid2D::setBoundary(unsigned char *boundary)
     });
 }
 
-void cmapFluid2D::setInitVelocity(float distance)
+void BimocqSolver2D::setInitVelocity(float distance)
 {
     SparseMatrixd M;
     int n = ni*nj;
@@ -2795,7 +2791,7 @@ void cmapFluid2D::setInitVelocity(float distance)
     {
         int j = thread_Idx/(ni+1);
         int i = thread_Idx%(ni+1);
-        Vec2f pos = h*Vec2f(i, j) - Vec2f(PI);
+        Vec2f pos = h*Vec2f(i, j) - Vec2f(M_PI);
         Vec2f vort_pos0 = Vec2f(-0.5*distance,0);
         Vec2f vort_pos1 = Vec2f(+0.5*distance,0);
         double r_sqr0 = dist2(pos, vort_pos0);
@@ -2844,14 +2840,14 @@ void cmapFluid2D::setInitVelocity(float distance)
     cBar = color_bar(max_curl);
 }
 
-void cmapFluid2D::setInitDensity(float height, Array2f &buffer, Array2f &buffer_sec)
+void BimocqSolver2D::setInitDensity(float height, Array2f &buffer, Array2f &buffer_sec)
 {
     tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
     {
         int i = tIdx%ni;
         int j = tIdx / ni;
         Vec2f pos = h*(Vec2f(i,j) + Vec2f(0.5, 0.5));
-        float preturb = height + 0.05f*cos(10*PI*pos.v[0]);
+        float preturb = height + 0.05f*cos(10*M_PI*pos.v[0]);
         if (pos.v[1] >= preturb)
         {
             buffer(i,j) = 1.f;
@@ -2862,7 +2858,7 @@ void cmapFluid2D::setInitDensity(float height, Array2f &buffer, Array2f &buffer_
     });
 }
 
-void cmapFluid2D::setInitLeapFrog(float dist_a, float dist_b)
+void BimocqSolver2D::setInitLeapFrog(float dist_a, float dist_b)
 {
     //initialize curl;
     float max_curl=0;
@@ -2871,7 +2867,7 @@ void cmapFluid2D::setInitLeapFrog(float dist_a, float dist_b)
       {
           int j = thread_Idx/(ni+1);
           int i = thread_Idx%(ni+1);
-          Vec2f pos = h*Vec2f(i, j) - Vec2f(PI);
+          Vec2f pos = h*Vec2f(i, j) - Vec2f(M_PI);
           Vec2f vort_pos0 = Vec2f(-0.5*dist_a,-2.0f);
           Vec2f vort_pos1 = Vec2f(+0.5*dist_a,-2.0f);
           Vec2f vort_pos2 = Vec2f(-0.5*dist_b,-2.0f);
@@ -2940,7 +2936,7 @@ void cmapFluid2D::setInitLeapFrog(float dist_a, float dist_b)
     cBar = color_bar(max_curl);
 }
 
-void cmapFluid2D::buildMultiGrid_reflect()
+void BimocqSolver2D::buildMultiGrid_reflect()
 {
     //build the matrix
     //we are assuming a a whole fluid domain
@@ -2981,7 +2977,7 @@ void cmapFluid2D::buildMultiGrid_reflect()
     mgLevelGenerator.generateLevelsGalerkinCoarsening2D(A_L, R_L, P_L, S_L, total_level, matrix_fix, ni, nj);
 }
 
-void cmapFluid2D::buildMultiGrid()
+void BimocqSolver2D::buildMultiGrid()
 {
     //build the matrix
     //we are assuming a a whole fluid domain
@@ -3038,7 +3034,7 @@ void cmapFluid2D::buildMultiGrid()
     mgLevelGenerator.generateLevelsGalerkinCoarsening2D(A_L, R_L, P_L, S_L, total_level, matrix_fix, ni, nj);
 }
 
-void cmapFluid2D::applyVelocityBoundary()
+void BimocqSolver2D::applyVelocityBoundary()
 {
     tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx) {
         int i = tIdx%ni;
@@ -3075,7 +3071,7 @@ void cmapFluid2D::applyVelocityBoundary()
     });
 }
 
-void cmapFluid2D::init(int nx, int ny, float L)
+void BimocqSolver2D::init(int nx, int ny, float L)
 {
     h = L / (float)nx;
     ni = nx;
@@ -3106,7 +3102,7 @@ void cmapFluid2D::init(int nx, int ny, float L)
     std::cout << "h value is: " << h << "!!!" << std::endl;
 }
 
-void cmapFluid2D::initMaccormack()
+void BimocqSolver2D::initMaccormack()
 {
     u_first.resize(ni+1, nj);
     v_first.resize(ni, nj+1);
@@ -3114,7 +3110,7 @@ void cmapFluid2D::initMaccormack()
     v_sec.resize(ni, nj+1);
 }
 
-void cmapFluid2D::calculateCurl() {
+void BimocqSolver2D::calculateCurl() {
     curl.assign(0);
     tbb::parallel_for((int)0, (ni+1)*(nj+1), 1, [&](int tIdx)
     {
@@ -3126,7 +3122,7 @@ void cmapFluid2D::calculateCurl() {
         }
     });
 }
-void cmapFluid2D::initCmap(int nx, int ny, int N)
+void BimocqSolver2D::initCmap(int nx, int ny, int N)
 {
     seedParticles(N);
     rho_init.resize(nx, ny);
@@ -3151,7 +3147,7 @@ void cmapFluid2D::initCmap(int nx, int ny, int N)
     weight.assign(nx, ny, 1e-5);
     emitSmoke();
 }
-void cmapFluid2D::initParticleVelocity()
+void BimocqSolver2D::initParticleVelocity()
 {
 
     tbb::parallel_for((int)0, (int)cParticles.size(), 1, [&](int i)
@@ -3161,7 +3157,7 @@ void cmapFluid2D::initParticleVelocity()
         cParticles[i].C_y = cParticles[i].calculateCp(cParticles[i].pos_current, v, h, ni, nj+1, 0.5, 0.0);
     });
 }
-void cmapFluid2D::initGridCmap(int nx, int ny, int N)
+void BimocqSolver2D::initGridCmap(int nx, int ny, int N)
 {
     grid_x.resize(nx, ny);
     grid_y.resize(nx, ny);
@@ -3201,7 +3197,7 @@ void cmapFluid2D::initGridCmap(int nx, int ny, int N)
 
 }
 
-void cmapFluid2D::initFGCmap(int nx, int ny, int N)
+void BimocqSolver2D::initFGCmap(int nx, int ny, int N)
 {
     grid_x.resize(nx, ny);
     grid_xinit.resize(nx, ny);
@@ -3250,7 +3246,7 @@ void cmapFluid2D::initFGCmap(int nx, int ny, int N)
     });
 }
 
-void cmapFluid2D::init_interpolate(int nx, int ny, float L)
+void BimocqSolver2D::init_interpolate(int nx, int ny, float L)
 {
     h = L/(float)nx;
     ni = nx;
@@ -3260,7 +3256,7 @@ void cmapFluid2D::init_interpolate(int nx, int ny, float L)
     rho.resize(nx, ny);
 }
 
-void cmapFluid2D::emitSmoke()
+void BimocqSolver2D::emitSmoke()
 {
     tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
     {
@@ -3295,7 +3291,7 @@ void cmapFluid2D::emitSmoke()
     });
 }
 
-Vec2f cmapFluid2D::getVelocity(Vec2f & pos)
+Vec2f BimocqSolver2D::getVelocity(Vec2f & pos)
 {
     float u_sample, v_sample;
     //offset of u, we are in a staggered grid
@@ -3316,7 +3312,7 @@ Vec2f cmapFluid2D::getVelocity(Vec2f & pos)
 }
 
 
-float cmapFluid2D::sampleField(Vec2f pos, const Array2f &field)
+float BimocqSolver2D::sampleField(Vec2f pos, const Array2f &field)
 {
     Vec2f spos = pos;
     int i = floor(spos.v[0] / h), j = floor(spos.v[1] / h);

@@ -1,5 +1,5 @@
-#ifndef IVOCK_BIMOCQSOLVER_H
-#define IVOCK_BIMOCQSOLVER_H
+#ifndef BIMOCQSOLVER_H
+#define BIMOCQSOLVER_H
 #include "../include/array.h"
 #include "tbb/tbb.h"
 #include "../include/fluid_buffer3D.h"
@@ -142,4 +142,4 @@ public:
 };
 
 
-#endif //IVOCK_BIMOCQSOLVER_H
+#endif //BIMOCQSOLVER_H

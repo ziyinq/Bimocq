@@ -1,8 +1,5 @@
-//
-// Created by ziyin on 18-9-28.
-//
 #include <iostream>
-#include "cmapFluid2D.h"
+#include "BimocqSolver2D.h"
 #include <string>
 #include "../utils/visualize.h"
 
@@ -26,7 +23,7 @@ int main(int argc, char** argv)
 
     int nx = 256*N;
     int ny = nx*5;
-    cmapFluid2D smokeSimulator;
+    BimocqSolver2D smokeSimulator;
     smokeSimulator.init(nx, ny, L);
     smokeSimulator.buildMultiGrid();
     smokeSimulator.setAlpha(0.2);
