@@ -14,75 +14,7 @@
 #include "../utils/visualize.h"
 #include "../utils/color_macro.h"
 
-struct mat2x2{
-    double v[4];
-    mat2x2()
-    {}
-
-    mat2x2(double a, double b, double c, double d)
-    {
-        v[0] = a, v[1] = b, v[2] = c, v[3] = d;
-    }
-
-    mat2x2(const mat2x2 &m)
-    {
-        for(int i=0; i<4; i++) v[i] = m[i];
-    }
-
-    const double& operator()(int i, int j) const
-    {
-        return v[j*2 + i];
-    }
-    double& operator()(int i, int j)
-    {
-        return v[j*2 + i];
-    }
-
-    const double& operator[](int i) const
-    {
-        return v[i];
-    }
-    double& operator[](int i)
-    {
-        return v[i];
-    }
-
-    double det()
-    {
-        return v[0]*v[3] - v[1]*v[2];
-    }
-    mat2x2 inverse() {
-        double d = det();
-        return mat2x2(v[3] / d, -v[1] / d, -v[2] / d, v[0] / d);
-    }
-    mat2x2 operator*(const mat2x2 &m)
-    {
-        return mat2x2(v[0]*m[0]+v[1]*m[2], v[0]*m[1]+v[1]*m[3], v[2]*m[0]+v[3]*m[2], v[2]*m[1]+v[3]*m[3]);
-    }
-    Vec2f operator*(const Vec2f &vec)
-    {
-        Vec2f v0 = Vec2f(v[0], v[1]);
-        Vec2f v1 = Vec2f(v[2], v[3]);
-        Vec2f res = Vec2f(dot(v0,vec), dot(v1,vec));
-        return res;
-    }
-    mat2x2 operator*=(const double &c)
-    {
-        v[0]*=c; v[1]*=c; v[2]*=c; v[3]*=c;
-        return *this;
-    }
-};
-
-inline float kernel(float r)
-{
-    return r <= 1.0 ? 1 - r : 0;
-}
-
-inline float frand(float a, float b)
-{
-    return a + (b-a) * rand()/(float)RAND_MAX;
-}
-
+enum Scheme {SEMILAG, MACCORMACK, BFECC, MAC_REFLECTION, FLIP, APIC, POLYPIC, BIMOCQ};
 
 class CmapParticles
 {
@@ -186,22 +118,15 @@ public:
     inline	float lerp(float v0, float v1, float c);
     inline	float bilerp(float v00, float v01, float v10, float v11, float cx, float cy);
     void semiLagAdvect(const Array2f &src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y);
-    void semiLagAdvect_fmap(const Array2f &srcx, const Array2f &srcy, Array2f & dstx, Array2f & dsty, float dt, int ni, int nj, float off_x, float off_y);
-    void semiLagAdvect_correct(const Array2f &src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y, const Array2f &diff_x, const Array2f &diff_y);
     void solveAdvection(float dt);
-    void solveAdvectionCmap();
     void solveMaccormack(const Array2f &src, Array2f &dst, Array2f & aux, float dt, int ni, int nj, float offsetx, float offsety);
     void solveBFECC(const Array2f &src, Array2f &dst, Array2f & aux, float dt, int ni, int nj, float offsetx, float offsety);
     void applyBouyancyForce(float dt);
-    void applyForce();
     void calculateCurl();
     void projection(float tol, bool bc);
     void advance(float dt, int currentframe, int emitframe, unsigned char* boundary);
     void setBoundary(unsigned char* boundary);
     void seedParticles(int N);
-
-    void advanceCmap(float dt, int currentframe, int emitframe, unsigned char* boundary);
-    void advanceGridCmap(float dt, int currentframe, int emitframe, unsigned char* boundary);
 
     void advanceFGCmap2(float dt, int currentframe);
     void resampleFGCmap2(float dt, Array2f &du_last, Array2f dv_last);
@@ -221,50 +146,31 @@ public:
     void updateForward(float dt, Array2f &fwd_x, Array2f &fwd_y);
     void updateBackward(float dt, Array2f &back_X, Array2f &back_y);
 
-
-    void backwardmap(const Array2f &xinit, const Array2f &yinit, const Array2f &xfwd, const Array2f &yfwd, Array2f & dstx, Array2f & dsty, float dt, int ni, int nj, float off_x, float off_y, int sample_num);
-    void advectParticles(float dt);
-    void characteristicMap(float dt);
-
     void advectVelocity(bool db, Array2f &semi_u, Array2f &semi_v);
     void advectRho(bool db, Array2f &semi_rho, Array2f &semi_T, Array2f &back_x, Array2f &back_y);
     void cumulateVelocity(float c, bool correct);
     void cumulateScalar(Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y, bool correct);
 
     void buildMultiGrid();
-    void buildMultiGrid_reflect();
-    void buildMultiGridPsi();
 
     void applyVelocityBoundary();
 
     void init(int nx, int ny, float L);
     void initCmap(int nx, int ny, int N);
     void initParticleVelocity();
-    void initGridCmap(int nx, int ny, int N);
-    void initFGCmap(int nx, int ny, int N);
     void initMaccormack();
 
-    void correctD(float c);
     void correctRhoRemapping(Array2f &semi_rho, Array2f &semi_T, Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y);
     void correctVelRemapping(Array2f &semi_u, Array2f &semi_v);
-    void resampleParticle(int N);
-    void resampleGrid();
-    void resampleFGCmap(float dt);
-    void resampleFGCmap_cummulative();
 
     /// new scheme for SEMILAG advection
     Vec2f calculateA(Vec2f pos, float h);
-    Vec2f calculateAF(Vec2f pos, float h);
     void semiLagAdvectDMC(const Array2f &src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y);
     inline Vec2f solveODEDMC(float dt, Vec2f &pos);
-    inline Vec2f solveODEDMCF(float dt, Vec2f &pos);
     inline Vec2f traceDMC(float dt, Vec2f &pos, Vec2f &a);
-    inline Vec2f traceDMCF(float dt, Vec2f &pos, Vec2f &a);
-
 
     double computeEnergy();
 
-    void init_interpolate(int nx, int ny, float L);
     void setInitDensity(float h, Array2f &buffer, Array2f &buffer_sec);
     void setInitVelocity(float distance);
     void setInitLeapFrog(float dist1, float dist2);
@@ -309,7 +215,6 @@ public:
     }
     float maxVel();
     float estimateDistortion(Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y);
-    float estimateDistortionFace();
 	inline Vec2f traceRK3(float dt, Vec2f &pos);
     inline Vec2f solveODE(float dt, Vec2f &pos);
     void emitSmoke();
@@ -370,33 +275,6 @@ public:
         wrtieBMPuc3(filename, ni, nj, (unsigned char*)(&(color[0])));
     }
 
-    void outputVel(std::string uFilename, std::string vFilename, int i)
-    {
-        std::ofstream foutU;
-        std::ofstream foutV;
-        std::string filenameU = uFilename + std::to_string(i) + std::string(".txt");
-        std::string filenameV = vFilename + std::to_string(i) + std::string(".txt");
-        foutU.open(filenameU);
-        foutV.open(filenameV);
-        for (int i = 0; i<=ni/2; i++)
-        {
-            for (int j = 0; j<nj+1; j++)
-            {
-                if (j != nj){
-                    foutU << u(i,j) << " ";
-                }
-                if (i != ni/2){
-                    foutV << v(i,j) << " ";
-                }
-            }
-            foutU << std::endl;
-            foutV << std::endl;
-        }
-        foutU.close();
-        foutV.close();
-        std::cout << "Output velocity finished!" << std::endl;
-    }
-
     color_bar cBar;
     int total_resampleCount = 0;
     int total_rho_resample = 0;
@@ -406,8 +284,7 @@ public:
     void getCFL();
     Vec2f getVelocity(Vec2f &pos);
     float sampleField(Vec2f pos, const Array2f &field);
-    float map_h;
-    int map_ni, map_nj;
+
     float h;
     float alpha, beta;
     Array2f p_temp;
@@ -494,11 +371,6 @@ public:
 
     Array2f grid_xscalar;
     Array2f grid_yscalar;
-
-    Array2i index_x;
-    Array2i index_y;
-    Array2f max_dist;
-
 
     int lastremeshing = 0;
     int rho_lastremeshing = 0;

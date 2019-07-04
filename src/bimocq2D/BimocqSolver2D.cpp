@@ -61,14 +61,6 @@ inline Vec2f BimocqSolver2D::solveODEDMC(float dt, Vec2f &pos)
     return opos;
 }
 
-inline Vec2f BimocqSolver2D::solveODEDMCF(float dt, Vec2f &pos)
-{
-    Vec2f a = calculateAF(pos, h);
-    Vec2f opos=pos;
-    opos = traceDMCF(dt, opos, a);
-    return opos;
-}
-
 void BimocqSolver2D::getCFL()
 {
     _cfl = h / fabs(maxVel());
@@ -87,19 +79,6 @@ inline Vec2f BimocqSolver2D::traceDMC(float dt, Vec2f &pos, Vec2f &a)
     return Vec2f(new_x, new_y);
 }
 
-inline Vec2f BimocqSolver2D::traceDMCF(float dt, Vec2f &pos, Vec2f &a)
-{
-    Vec2f vel = getVelocity(pos);
-    float new_x = pos[0] + dt*vel[0];
-    float new_y = pos[1] + dt*vel[1];
-    if (fabs(a[0]) >1e-4) new_x = pos[0] + (1-exp(-a[0]*dt))*vel[0]/(a[0]);
-//    else new_x = solveODE(dt, pos)[0];
-
-    if (fabs(a[1]) >1e-4) new_y = pos[1] + (1-exp(-a[1]*dt))*vel[1]/(a[1]);
-//    else new_y = solveODE(dt, pos)[1];
-    return Vec2f(new_x, new_y);
-}
-
 inline float BimocqSolver2D::lerp(float v0, float v1, float c)
 {
     return (1-c)*v0+c*v1;
@@ -115,18 +94,6 @@ Vec2f BimocqSolver2D::calculateA(Vec2f pos, float h)
     Vec2f vel = getVelocity(pos);
     float new_x = (vel[0] > 0)? pos[0]-h : pos[0]+h;
     float new_y = (vel[1] > 0)? pos[1]-h : pos[1]+h;
-    Vec2f new_pos = Vec2f(new_x, new_y);
-    Vec2f new_vel = getVelocity(new_pos);
-    float a_x = (vel[0] - new_vel[0]) / (pos[0] - new_pos[0]);
-    float a_y = (vel[1] - new_vel[1]) / (pos[1] - new_pos[1]);
-    return Vec2f(a_x, a_y);
-}
-
-Vec2f BimocqSolver2D::calculateAF(Vec2f pos, float h)
-{
-    Vec2f vel = getVelocity(pos);
-    float new_x = (vel[0] > 0)? pos[0]+h : pos[0]-h;
-    float new_y = (vel[1] > 0)? pos[1]+h : pos[1]-h;
     Vec2f new_pos = Vec2f(new_x, new_y);
     Vec2f new_vel = getVelocity(new_pos);
     float a_x = (vel[0] - new_vel[0]) / (pos[0] - new_pos[0]);
@@ -164,39 +131,6 @@ void BimocqSolver2D::semiLagAdvect(const Array2f & src, Array2f & dst, float dt,
 						  Vec2f back_pos = solveODE(-dt, pos);
                           dst(i, j) = sampleField(back_pos - h*Vec2f(off_x, off_y), src);
                       });
-}
-
-void BimocqSolver2D::semiLagAdvect_fmap(const Array2f &srcx, const Array2f &srcy, Array2f &dstx, Array2f &dsty, float dt, int ni, int nj, float off_x, float off_y)
-{
-    tbb::parallel_for((int)0,
-                      (int)(ni*nj),
-                      (int)1,
-                      [&](int tId)
-                      {
-                          int j = tId / ni;
-                          int i = tId % ni;
-                          Vec2f pos = Vec2f(srcx(i,j), srcy(i,j));
-                          Vec2f back_pos = solveODE(-dt, pos);
-                          dstx(i, j) = sampleField(back_pos - h*Vec2f(off_x, off_y), srcx);
-                          dsty(i, j) = sampleField(back_pos - h*Vec2f(off_x, off_y), srcy);
-                      });
-}
-
-void BimocqSolver2D::semiLagAdvect_correct(const Array2f & src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y, const Array2f &diff_x, const Array2f &diff_y)
-{
-    tbb::parallel_for((int)0,
-                      (int)(ni*nj),
-                      (int)1,
-                      [&](int tId)
-                      {
-                          int j = tId / ni;
-                          int i = tId % ni;
-                          Vec2f pos = h*Vec2f(i, j) + h*Vec2f(off_x, off_y);
-                          float ratio = 0.5;
-                          Vec2f back_pos = solveODE(-dt, pos) + Vec2f(ratio*diff_x(i,j), ratio*diff_y(i,j));
-                          dst(i, j) = sampleField(back_pos - h*Vec2f(off_x, off_y), src);
-                      });
-
 }
 
 void BimocqSolver2D::solveAdvection(float dt)
@@ -285,93 +219,6 @@ void BimocqSolver2D::solveBFECC(const Array2f &src, Array2f &dst, Array2f &aux, 
     });
 }
 
-void BimocqSolver2D::solveAdvectionCmap()
-{
-    //we should instead solveAdvection use characteristic mapping
-    //  for all particle
-    //      splat x_init to grid;
-    //
-    //  for each grid cell
-    //      u(i,j) = sample(u_init, x_init)
-    //
-    //  for all particle
-    //      splat f_c to u
-    //
-    Array2f weight_u;
-    Array2f weight_v;
-    weight_u.resize(ni+1, nj);
-    weight_v.resize(ni, nj+1);
-    weight_u.assign(ni+1, nj, 1e-5);
-    weight_v.assign(ni, nj+1, 1e-5);
-    Array2f gridpos_ux;
-    Array2f gridpos_uy;
-    Array2f gridpos_vx;
-    Array2f gridpos_vy;
-    gridpos_ux.resize(ni+1, nj);
-    gridpos_uy.resize(ni+1, nj);
-    gridpos_vx.resize(ni, nj+1);
-    gridpos_vy.resize(ni, nj+1);
-    gridpos_ux.assign(ni+1, nj, 0.);
-    gridpos_uy.assign(ni+1, nj, 0.);
-    gridpos_vx.assign(ni, nj+1, 0.);
-    gridpos_vy.assign(ni, nj+1, 0.);
-    Array2f du;
-    Array2f dv;
-    du.resize(ni+1, nj);
-    dv.resize(ni, nj+1);
-    du.assign(ni+1, nj, 0.);
-    dv.assign(ni, nj+1, 0.);
-    for (int i = 0; i < cParticles.size(); i++)
-    {
-        CmapParticles *p = &(cParticles[i]);
-        int x = p->pos_current.v[0] / h;
-        int y = p->pos_current.v[1] / h;
-        for(int jj=y-1;jj<=y+1;jj++) for(int ii=x-1;ii<=x+1;ii++)
-            {
-                if (jj >= 0 && jj < nj && ii >= 0 && ii <= ni)
-                {
-                    float w_u = p->kernel(std::fabs(p->pos_current.v[0] / h - ii)) * p->kernel(std::fabs(p->pos_current.v[1] / h - 0.5 - jj));
-                    gridpos_ux(ii, jj) += w_u*p->pos_start.v[0];
-                    gridpos_uy(ii, jj) += w_u*p->pos_start.v[1];
-                    du(ii, jj) += w_u*p->du;
-                    weight_u(ii, jj) += w_u;
-                }
-                if (jj >= 0 && jj <= nj && ii >= 0 && ii < ni)
-                {
-                    float w_v = p->kernel(std::fabs(p->pos_current.v[0] / h - 0.5 - ii)) * p->kernel(std::fabs(p->pos_current.v[1] / h - jj));
-                    gridpos_vx(ii, jj) += w_v*p->pos_start.v[0];
-                    gridpos_vy(ii, jj) += w_v*p->pos_start.v[1];
-                    dv(ii, jj) += w_v*p->dv;
-                    weight_v(ii, jj) += w_v;
-                }
-            }
-    }
-    tbb::parallel_for((int)0,
-                      (int)(ni+1)*nj,
-                      (int)1,
-                      [&](int tId)
-                      {
-                          gridpos_ux.a.data[tId] /= weight_u.a.data[tId];
-                          gridpos_uy.a.data[tId] /= weight_u.a.data[tId];
-                          du.a.data[tId] /= weight_u.a.data[tId];
-                          Vec2f pos = Vec2f(gridpos_ux.a.data[tId], gridpos_uy.a.data[tId]);
-                          u.a.data[tId] = sampleField(pos - Vec2f(0.0, 0.5f)*h, u_init) + du.a.data[tId];
-                      }
-    );
-    tbb::parallel_for((int)0,
-                      (int)ni*(nj+1),
-                      (int)1,
-                      [&](int tId)
-                      {
-                          gridpos_vx.a.data[tId] /= weight_v.a.data[tId];
-                          gridpos_vy.a.data[tId] /= weight_v.a.data[tId];
-                          dv.a.data[tId] /= weight_v.a.data[tId];
-                          Vec2f pos = Vec2f(gridpos_vx.a.data[tId], gridpos_vy.a.data[tId]);
-                          v.a.data[tId] = sampleField(pos - Vec2f(0.5, 0.0)*h, v_init) + dv.a.data[tId];
-                      }
-    );
-}
-
 void BimocqSolver2D::applyBouyancyForce(float dt)
 {
     tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
@@ -386,17 +233,6 @@ void BimocqSolver2D::applyBouyancyForce(float dt)
         int j = tIdx / ni;
         v(i, j + 1) += 0.5*dt*(-alpha*rho(i, j) - beta*temperature(i, j));
     });
-}
-
-void BimocqSolver2D::applyForce()
-{
-    for (int i =8; i<=18; i++)
-    {
-        for (int j = 60; j <=68; j++)
-        {
-            u(i,j) = -0.5;
-        }
-    }
 }
 
 void BimocqSolver2D::projection(float tol, bool bc)
@@ -530,86 +366,6 @@ void BimocqSolver2D::advanceReflection(float dt, int currentframe, int emitframe
 //    temperature.assign(ni, nj, s_temp.a.data);
 }
 
-void BimocqSolver2D::advanceGridCmap(float dt, int currentframe, int emitframe, unsigned char* boundary)
-{
-	grid_tempx.assign(ni, nj, 0.0f);
-	grid_tempy.assign(ni, nj, 0.0f);
-	du_temp.assign(ni + 1, nj, 0.0f);
-	dv_temp.assign(ni, nj + 1, 0.0f);
-	drho_temp.assign(ni, nj, 0.0f);
-	dT_temp.assign(ni, nj, 0.0f);
-    semiLagAdvect(grid_x, grid_tempx, dt, ni, nj, 0.5, 0.5);
-    semiLagAdvect(grid_y, grid_tempy, dt, ni, nj, 0.5, 0.5);
-    grid_x.assign(ni, nj, grid_tempx.a.data);
-    grid_y.assign(ni, nj, grid_tempy.a.data);
-    semiLagAdvect(du, du_temp, dt, ni+1, nj, 0.0, 0.5f);
-    semiLagAdvect(dv, dv_temp, dt, ni, nj+1, 0.5, 0.0f);
-    semiLagAdvect(drho, drho_temp, dt, ni, nj, 0.5, 0.5);
-    semiLagAdvect(dT, dT_temp, dt, ni, nj, 0.5, 0.5);
-    du.assign(ni+1, nj, du_temp.a.data);
-    dv.assign(ni, nj+1, dv_temp.a.data);
-    drho.assign(ni, nj, drho_temp.a.data);
-    dT.assign(ni, nj, dT_temp.a.data);
-
-    tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
-        int i = tIdx%(ni+1);
-        int j = tIdx / (ni+1);
-            Vec2f pos = h*Vec2f(i, j) + h*Vec2f(0.0, 0.5);
-            float x_init = sampleField(pos - h*Vec2f(0.5), grid_x);
-            float y_init = sampleField(pos - h*Vec2f(0.5), grid_y);
-            u(i, j) = sampleField(Vec2f(x_init, y_init) - h*Vec2f(0.0,0.5), u_init) + du(i, j);
-
-
-    });
-    tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        Vec2f pos = h*Vec2f(i, j) + h*Vec2f(0.5, 0.0);
-        float x_init = sampleField(pos - h*Vec2f(0.5), grid_x);
-        float y_init = sampleField(pos - h*Vec2f(0.5), grid_y);
-        v(i, j) = sampleField(Vec2f(x_init, y_init) - h*Vec2f(0.5,0.0), v_init) + dv(i, j);
-    });
-    tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        Vec2f pos = h*Vec2f(i, j) + h*Vec2f(0.5, 0.5);
-        float x_init = sampleField(pos - h*Vec2f(0.5), grid_x);
-        float y_init = sampleField(pos - h*Vec2f(0.5), grid_y);
-        rho(i, j) = sampleField(Vec2f(x_init, y_init) - h*Vec2f(0.5, 0.5), rho_init) + drho(i,j);
-        temperature(i, j) = sampleField(Vec2f(x_init, y_init) - h*Vec2f(0.5, 0.5), temp_init) + dT(i,j);
-    });
-
-    Array2f u_save;
-    Array2f v_save;
-    Array2f rho_save;
-    Array2f T_save;
-    u_save = u;
-    v_save = v;
-    rho_save = rho;
-    T_save = temperature;
-
-    if (currentframe < emitframe)  emitSmoke();
-    if (currentframe < emitframe) applyForce();
-    projection(1e-6,true);
-
-    tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
-        int i = tIdx%(ni+1);
-        int j = tIdx / (ni+1);
-        du(i, j) += u(i,j) - u_save(i, j);
-    });
-    tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        dv(i, j) += v(i,j) - v_save(i, j);
-    });
-    tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        drho(i, j) += rho(i,j) - rho_save(i,j);
-        dT(i, j) += temperature(i,j) - T_save(i,j);
-    });
-
-}
 void BimocqSolver2D::nostickBC()
 {
 
@@ -733,59 +489,6 @@ float BimocqSolver2D::estimateDistortion(Array2f &back_x, Array2f &back_y, Array
     return d;
 }
 
-float BimocqSolver2D::estimateDistortionFace()
-{
-    float sum = 0;
-    float d = 0;
-    std::vector<Vec2f> dir(4);
-    dir[0] = Vec2f(-0.25,-0.25);
-    dir[1] = Vec2f(0.25, -0.25);
-    dir[2] = Vec2f(-0.25, 0.25);
-    dir[3] = Vec2f( 0.25, 0.25);
-    for(int tIdx=0;tIdx<ni*nj;tIdx++)
-    {
-        int i = tIdx % ni;
-        int j = tIdx / ni;
-        if(i>2&&i<ni-3 && j>2&&j<nj-3)
-        {
-            Vec2f new_pos(0.f);
-            for (int k = 0; k < 4; k++)
-            {
-                Vec2f pos = h * Vec2f(i, j) + h * Vec2f(0.5, 0.5) + h * dir[k];
-                Vec2f fpos0 = Vec2f(sampleField(pos - Vec2f(0.5) * h, grid_x),
-                                    sampleField(pos - Vec2f(0.5) * h, grid_y));
-                Vec2f bpos = Vec2f(sampleField(fpos0 - Vec2f(0.5) * h, grid_xinit),
-                                   sampleField(fpos0 - Vec2f(0.5) * h, grid_yinit));
-                new_pos += bpos;
-            }
-            new_pos /= 4.f;
-            d = std::max(dist(new_pos, Vec2f(i,j)*h + h*Vec2f(0.5, 0.5)), d);
-        }
-    }
-
-    for(int tIdx=0;tIdx<ni*nj;tIdx++)
-    {
-        int i = tIdx % ni;
-        int j = tIdx / ni;
-        if(i>2&&i<ni-3 && j>2&&j<nj-3)
-        {
-            Vec2f new_pos(0.f);
-            for (int k = 0; k < 4; k++)
-            {
-                Vec2f pos = h * Vec2f(i, j) + h * Vec2f(0.5, 0.5) + h * dir[k];
-                Vec2f bpos0 = Vec2f(sampleField(pos - Vec2f(0.5) * h, grid_xinit),
-                                   sampleField(pos - Vec2f(0.5) * h, grid_yinit));
-                Vec2f fpos = Vec2f(sampleField(bpos0 - Vec2f(0.5) * h, grid_x),
-                                   sampleField(bpos0 - Vec2f(0.5) * h, grid_y));
-                new_pos += fpos;
-            }
-            new_pos /= 4.f;
-            d = std::max(dist(new_pos, Vec2f(i,j)*h + h*Vec2f(0.5, 0.5)), d);
-        }
-    }
-    return d;
-}
-
 float BimocqSolver2D::maxVel()
 {
     float vel=0;
@@ -812,56 +515,6 @@ float BimocqSolver2D::maxVel()
 //    std::cout << "max velocity index: (" << idx_i << ", " << idx_j << ")" << std::endl;
     return vel + 1e-5;
 
-}
-
-void BimocqSolver2D::correctD(float c)
-{
-    Array2f temp_u;
-    Array2f temp_v;
-    temp_u.resize(ni+1, nj, 0.0);
-    temp_v.resize(ni, nj+1, 0.0);
-    tbb::parallel_for((int) 0, (ni + 1) * nj, 1, [&](int tIdx) {
-        int i = tIdx % (ni + 1);
-        int j = tIdx / (ni + 1);
-        std::vector<Vec2f> dir(5);
-        dir[0] = Vec2f(-0.25,-0.25);
-        dir[1] = Vec2f(0.25, -0.25);
-        dir[2] = Vec2f(-0.25, 0.25);
-        dir[3] = Vec2f( 0.25, 0.25);
-        dir[4] = Vec2f(0.0, 0.0);
-        float w[5] = {0.f,0.f,0.f,0.f,1.0f};
-        if(i>1&&i<ni-1 && j>0 && j< nj-1)
-            for(int k = 0; k < 5; k++)
-            {
-                Vec2f pos = h * Vec2f(i, j) + h * Vec2f(0.0, 0.5) + h * dir[k];
-                float x_init = sampleField(pos - h * Vec2f(0.5), grid_x);
-                float y_init = sampleField(pos - h * Vec2f(0.5), grid_y);
-                Vec2f samplePos = Vec2f(x_init, y_init);
-                clampPos(samplePos);
-                temp_u(i, j) += w[k]*c*sampleField(samplePos - h * Vec2f(0.0, 0.5), du_temp);
-            }
-    });
-    tbb::parallel_for((int) 0, ni * (nj + 1), 1, [&](int tIdx) {
-        int i = tIdx % ni;
-        int j = tIdx / ni;
-        std::vector<Vec2f> dir(5);
-        dir[0] = Vec2f(-0.25,-0.25);
-        dir[1] = Vec2f(0.25, -0.25);
-        dir[2] = Vec2f(-0.25, 0.25);
-        dir[3] = Vec2f( 0.25, 0.25);
-        dir[4] = Vec2f(0.0, 0.0);
-        float w[5] = {0.f,0.f,0.f,0.f,1.0f};
-        if(i>0 && i<ni-1 && j>1 && j< nj-1)
-            for (int k = 0; k < 5; k++)
-            {
-                Vec2f pos = h * Vec2f(i, j) + h * Vec2f(0.5, 0.0) + h * dir[k];
-                float x_init = sampleField(pos - h * Vec2f(0.5), grid_x);
-                float y_init = sampleField(pos - h * Vec2f(0.5), grid_y);
-                Vec2f samplePos = Vec2f(x_init, y_init);
-                clampPos(samplePos);
-                temp_v(i, j) += w[k] * c * sampleField(samplePos - h * Vec2f(0.5, 0.0), dv_temp);
-            }
-    });
 }
 
 void BimocqSolver2D::correctRhoRemapping(Array2f &semi_rho, Array2f &semi_T, Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y)
@@ -2066,39 +1719,6 @@ void BimocqSolver2D::resampleRhoBuffer(float dt)
     });
 }
 
-void BimocqSolver2D::backwardmap(const Array2f &xinit, const Array2f &yinit, const Array2f &xfwd, const Array2f &yfwd, Array2f & dstx, Array2f & dsty, float dt, int ni, int nj, float off_x, float off_y, int sample_num)
-{
-    tbb::parallel_for((int)0,
-                      (int)(ni*nj),
-                      (int)1,
-                      [&](int tId)
-                      {
-                          int j = tId / ni;
-                          int i = tId % ni;
-                          Vec2f pos = h*Vec2f(i, j) + h*Vec2f(off_x, off_y);
-                          Vec2f back_pos = solveODE(-dt, pos);
-                          //seed some pos around back_pos
-                          float weight = 1e-4;
-                          for(int ii = 0; ii < sample_num; ii++)
-                          {
-                              float rand_x = frand(-0.5*h, 0.5*h);
-                              float rand_y = frand(-0.5*h, 0.5*h);
-                              Vec2f seed_pos = back_pos + Vec2f(rand_x, rand_y);
-                              float pos_init_x = sampleField(seed_pos - h * Vec2f(off_x, off_y), xinit);
-                              float pos_init_y = sampleField(seed_pos - h * Vec2f(off_x, off_y), yinit);
-                              Vec2f pos_init = Vec2f(pos_init_x, pos_init_y);
-                              float pos_fwd_x = sampleField(pos_init - h * Vec2f(off_x, off_y), xfwd);
-                              float pos_fwd_y = sampleField(pos_init - h * Vec2f(off_x, off_y), yfwd);
-                              float w = kernel(pos_fwd_x-pos.v[0])*kernel(pos_fwd_y - pos.v[1]);
-                              dstx(i,j) += w*pos_init.v[0];
-                              dsty(i,j) += w*pos_init.v[1];
-                              weight += w;
-                          }
-                          dstx(i,j) /= weight;
-                          dsty(i,j) /= weight;
-                      });
-}
-
 void BimocqSolver2D::advanceFLIP(float dt, int currentframe, int emitframe)
 {
     tbb::parallel_for((int)0, (int)cParticles.size(), 1, [&](int p)
@@ -2347,166 +1967,6 @@ void BimocqSolver2D::diffuseField(float nu, float dt, Array2f &field)
     }
     field = field_temp;
 }
-void BimocqSolver2D::advanceCmap(float dt, int currentframe, int emitframe, unsigned char* boundary)
-{
-//    std::cout<<"----- Before Energy: "<< computeEnergy()<<std::endl;
-    u_temp.resize(ni+1, nj);
-    v_temp.resize(ni, nj+1);
-    semiLagAdvect(u, u_temp, 0.5*dt, ni + 1, nj, 0.0, 0.5);
-    semiLagAdvect(v, v_temp, 0.5*dt, ni, nj + 1, 0.5, 0.0);
-    u.assign(ni+1, nj, u_temp.a.data);
-    v.assign(ni, nj+1, v_temp.a.data);
-
-    Array2f u_save;
-    Array2f v_save;
-    u_save = u;
-    v_save = v;
-    std::cout << "PCmap Frame " << currentframe << ": ";
-    projection(1e-6,true);//
-
-    Array2f u_tilde;
-    Array2f v_tilde;
-    u_tilde.resize(ni+1, nj);
-    v_tilde.resize(ni, nj+1);
-    tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
-        int i = tIdx%(ni+1);
-        int j = tIdx / (ni+1);
-        u_tilde(i, j) = 2*u(i,j) - u_save(i,j);
-    });
-    tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        v_tilde(i, j) = 2*v(i,j) - v_save(i,j);
-    });
-
-    u = u_save;
-    v = v_save;
-
-    semiLagAdvect(u_tilde, u_temp, 0.5*dt, ni + 1, nj, 0.0, 0.5);
-    semiLagAdvect(v_tilde, v_temp, 0.5*dt, ni, nj + 1, 0.5, 0.0);
-    u.assign(ni + 1, nj, u_temp.a.data);
-    v.assign(ni, nj + 1, v_temp.a.data);
-
-    u_save = u;
-    v_save = v;
-
-    projection(1e-6,true);//
-
-    tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
-        int i = tIdx%(ni+1);
-        int j = tIdx / (ni+1);
-        u_diff(i, j) = u(i,j) - u_save(i, j);
-    });
-    tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        v_diff(i, j) = v(i,j) - v_save(i, j);
-    });
-    tbb::parallel_for((int)0,
-                      (int)cParticles.size(),
-                      (int)1,
-                      [&](int tId)
-                      {
-                          cParticles[tId].du += sampleField(cParticles[tId].pos_current - Vec2f(0.0, 0.5)*h, u_diff);
-                          cParticles[tId].dv += sampleField(cParticles[tId].pos_current - Vec2f(0.5, 0.0)*h, v_diff);
-                      });
-    std::cout<<"----- Aftera Energy: "<< computeEnergy()<<std::endl << std::endl;
-
-
-/*
-    // advect particle
-    advectParticles(dt);
-    characteristicMap(dt);
-    // rho_save, temp_save = rho, temp;
-    // perform drho/dt, or dT/dt, for example, due to diffusion or decay
-    // rho_delta, temp_delta = rho-rho_save, temp-temp_save
-    // for all particle i
-    //      Drho, DT += interpolate(rho-rho_save, temp-temp_save)
-    Array2f rho_save = rho;
-    Array2f temp_save = temperature;
-    if (currentframe < emitframe) emitSmoke();
-    tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        rho_diff(i, j) = rho(i,j) - rho_save(i,j);
-        temp_diff(i, j) = temperature(i,j) - temp_save(i,j);
-    });
-    tbb::parallel_for((int)0,
-                      (int)cParticles.size(),
-                      (int)1,
-                      [&](int tId)
-                      {
-                          cParticles[tId].drho += sampleField(cParticles[tId].pos_current - Vec2f(0.5)*h, rho_diff);
-                          cParticles[tId].dtemp += sampleField(cParticles[tId].pos_current - Vec2f(0.5)*h, temp_diff);
-                      });
-
-    //    22
-    // advect velocity
-//    solveAdvection(dt);
-    Array2f udiff_temp;
-    Array2f vdiff_temp;
-    udiff_temp.assign(ni + 1, nj, 0.0f);
-    vdiff_temp.assign(ni, nj + 1, 0.0f);
-    semiLagAdvect(u_diff, udiff_temp, dt, ni + 1, nj, 0.0, 0.5);
-    semiLagAdvect(v_diff, vdiff_temp, dt, ni, nj + 1, 0.5, 0.0);
-    u_diff.assign(ni + 1, nj, udiff_temp.a.data);
-    v_diff.assign(ni, nj + 1, vdiff_temp.a.data);
-
-	solveAdvectionCmap();
-
-    Array2f u_save;
-    Array2f v_save;
-    u_save = u;
-    v_save = v;
-
-    tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
-        int i = tIdx%(ni+1);
-        int j = tIdx / (ni+1);
-        u(i, j) += 0.5*u_diff(i,j);
-    });
-    tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        v(i, j) += 0.5*v_diff(i,j);
-    });
-    //  u_save = u;                      <---------------
-//                                                       |
-//                                                       |
-    std::cout<<"----- Before Energy: "<< computeEnergy()<<std::endl;
-    if (currentframe < emitframe) applyForce();
-    applyBouyancyForce(dt);//                            |
-    std::cout << "PCmap Frame " << currentframe << ": ";
-    projection(false);//
-    std::cout<<"----- Aftera Energy: "<< computeEnergy()<<std::endl << std::endl;
-
-//                              |    velocity change due to bouyance force, boundary motion, and pressure projection.
-//                                                       |
-    // u_delta = u - u_save;                             |
-    // for all particle                                  |
-    //      f_c += interpolate(u_delta);  <---------------
-	tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
-		int i = tIdx%(ni+1);
-		int j = tIdx / (ni+1);
-		u_diff(i, j) = u(i,j) - u_save(i, j);
-	});
-	tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
-		int i = tIdx%ni;
-		int j = tIdx / ni;
-		v_diff(i, j) = v(i,j) - v_save(i, j);
-	});
-	tbb::parallel_for((int)0,
-					  (int)cParticles.size(),
-					  (int)1,
-					  [&](int tId)
-					  {
-						  cParticles[tId].du += sampleField(cParticles[tId].pos_current - Vec2f(0.0, 0.5)*h, u_diff);
-						  cParticles[tId].dv += sampleField(cParticles[tId].pos_current - Vec2f(0.5, 0.0)*h, v_diff);
-					  });
-    //when resample particles, just set f_c to zero.
-*/
-
-
-}
 
 void BimocqSolver2D::advanceBFECC(float dt, int currentframe, int emitframe, unsigned char *boundary)
 {
@@ -2552,130 +2012,6 @@ void BimocqSolver2D::advanceMaccormack(float dt, int currentframe, int emitframe
     diffuseField(1e-6, dt, u);
     diffuseField(1e-6, dt, v);
     projection(1e-6,true);
-}
-
-void BimocqSolver2D::characteristicMap(float dt)
-{
-    weight.assign(ni, nj, 1e-5);
-    gridpos_x.assign(ni, nj, 0.);
-    gridpos_y.assign(ni, nj, 0.);
-    Array2f drho;
-    Array2f dtemp;
-    drho.resize(ni, nj);
-    dtemp.resize(ni, nj);
-    drho.assign(ni, nj, 0.);
-    dtemp.assign(ni, nj, 0.);
-    for (int i = 0; i < cParticles.size(); i++)
-    {
-        CmapParticles *p = &(cParticles[i]);
-        int x = p->pos_current.v[0] / h;
-        int y = p->pos_current.v[1] / h;
-        for(int jj=y-1;jj<=y+1;jj++) for(int ii=x-1;ii<=x+1;ii++)
-            {
-                if (jj >= 0 && jj < nj && ii >= 0 && ii < ni)
-                {
-                    float w = p->kernel(std::fabs(p->pos_current.v[0] / h - 0.5 - ii)) * p->kernel(std::fabs(p->pos_current.v[1] / h - 0.5 - jj));
-                    gridpos_x(ii, jj) += w*p->pos_start.v[0];
-                    gridpos_y(ii, jj) += w*p->pos_start.v[1];
-                    drho(ii, jj) += w*p->drho;
-                    dtemp(ii, jj) += w*p->dtemp;
-                    weight(ii, jj) += w;
-                }
-            }
-    }
-    tbb::parallel_for((int)0,
-                      (int)ni*nj,
-                      (int)1,
-                      [&](int tId)
-                      {
-                          gridpos_x.a.data[tId] /= weight.a.data[tId];
-                          gridpos_y.a.data[tId] /= weight.a.data[tId];
-                          drho.a.data[tId] /= weight.a.data[tId];
-                          dtemp.a.data[tId] /= weight.a.data[tId];
-                          Vec2f pos = Vec2f(gridpos_x.a.data[tId], gridpos_y.a.data[tId]);
-                          rho.a.data[tId] = sampleField(pos - Vec2f(0.5)*h, rho_init) + drho.a.data[tId];
-                          temperature.a.data[tId] = sampleField(pos - Vec2f(0.5)*h, temp_init) + dtemp.a.data[tId];
-                      }
-    );
-}
-
-void BimocqSolver2D::advectParticles(float dt)
-{
-    //for all particles
-    tbb::parallel_for((int)0,
-                      (int)cParticles.size(),
-                      (int)1,
-                      [&](int tId)
-                      {
-                          //float c = time / dt_origin;
-                          CmapParticles *p = &(cParticles[tId]);
-                          p->pos_current = traceRK3(dt, p->pos_current);
-                          if (p->pos_current.v[0] <= 0) p->pos_current.v[0] = h;
-                          if (p->pos_current.v[0] >= h*ni) p->pos_current.v[0] = h*ni - h;
-                          if (p->pos_current.v[1] <= 0) p->pos_current.v[1] = h;
-                          if (p->pos_current.v[1] >= h*nj) p->pos_current.v[1] = h*nj - h;
-                      }
-    );
-}
-
-void BimocqSolver2D::resampleParticle(int N)
-{
-    rho_init = rho;
-    temp_init = temperature;
-    u_init = u;
-    v_init = v;
-    seedParticles(N);
-}
-
-void BimocqSolver2D::resampleGrid()
-{
-    u_init = u;
-    v_init = v;
-    rho_init = rho;
-    temp_init = temperature;
-    du.assign(ni+1, nj, 0.0);
-    dv.assign(ni, nj+1, 0.0);
-    drho.assign(ni, nj, 0.0);
-    dT.assign(ni, nj, 0.0);
-	tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
-	{
-		int i = tIdx%ni; int j = tIdx / ni;
-		grid_x(i, j) = h*((float)i + 0.5);
-		grid_y(i, j) = h*((float)j + 0.5);
-	});
-}
-
-void BimocqSolver2D::resampleFGCmap_cummulative()
-{
-    Array2f diff_u;
-    Array2f diff_v;
-    diff_u.resize(ni+1, nj);
-    diff_v.resize(ni, nj+1);
-
-}
-
-void BimocqSolver2D::resampleFGCmap(float dt)
-{
-    total_resampleCount++;
-    std::cout<<"remeshing!\n";
-    u_init = u;
-    v_init = v;
-    rho_init = rho;
-    temp_init = temperature;
-    du.assign(0);
-    dv.assign(0);
-    drho.assign(0);
-    dT.assign(0);
-    tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
-    {
-        int i = tIdx%ni; int j = tIdx / ni;
-        grid_x(i, j) = h*((float)i + 0.5);
-        grid_xinit(i, j) = h*((float)i + 0.5);
-        grid_y(i, j) = h*((float)j + 0.5);
-        grid_yinit(i, j) = h*((float)j + 0.5);
-    });
-    resampleCount = 0;
-
 }
 
 void BimocqSolver2D::seedParticles(int N)
@@ -2936,47 +2272,6 @@ void BimocqSolver2D::setInitLeapFrog(float dist_a, float dist_b)
     cBar = color_bar(max_curl);
 }
 
-void BimocqSolver2D::buildMultiGrid_reflect()
-{
-    //build the matrix
-    //we are assuming a a whole fluid domain
-    int n = ni*nj;
-    matrix.resize(n);
-    tbb::parallel_for((int)0, ni*nj, 1, [&](int thread_idx)
-    {
-        int j = thread_idx / ni;
-        int i = thread_idx % ni;
-        //if in fluid domain
-        if (i >= 0 && j >= 0 && i < ni&&j < nj)
-        {
-            if(boundaryMask(i,j) == 0)
-            {
-                if (boundaryMask(i - 1, j) == 0) {
-                    matrix.add_to_element(thread_idx, thread_idx - 1, -1 / (h * h));
-                    matrix.add_to_element(thread_idx, thread_idx, 1 / (h * h));
-                }
-
-                if (boundaryMask(i + 1, j) == 0) {
-                    matrix.add_to_element(thread_idx, thread_idx + 1, -1 / (h * h));
-                    matrix.add_to_element(thread_idx, thread_idx, 1 / (h * h));
-                }
-
-                if (boundaryMask(i, j - 1) == 0) {
-                    matrix.add_to_element(thread_idx, thread_idx - ni, -1 / (h * h));
-                    matrix.add_to_element(thread_idx, thread_idx, 1 / (h * h));
-                }
-
-                if (boundaryMask(i, j + 1) == 0) {
-                    matrix.add_to_element(thread_idx, thread_idx + ni, -1 / (h * h));
-                    matrix.add_to_element(thread_idx, thread_idx, 1 / (h * h));
-                }
-            }
-        }
-    });
-    matrix_fix.construct_from_matrix(matrix);
-    mgLevelGenerator.generateLevelsGalerkinCoarsening2D(A_L, R_L, P_L, S_L, total_level, matrix_fix, ni, nj);
-}
-
 void BimocqSolver2D::buildMultiGrid()
 {
     //build the matrix
@@ -3156,104 +2451,6 @@ void BimocqSolver2D::initParticleVelocity()
         cParticles[i].C_x = cParticles[i].calculateCp(cParticles[i].pos_current, u, h, ni+1, nj, 0.0, 0.5);
         cParticles[i].C_y = cParticles[i].calculateCp(cParticles[i].pos_current, v, h, ni, nj+1, 0.5, 0.0);
     });
-}
-void BimocqSolver2D::initGridCmap(int nx, int ny, int N)
-{
-    grid_x.resize(nx, ny);
-    grid_y.resize(nx, ny);
-    grid_tempx.resize(nx, ny);
-    grid_tempx.assign(nx, ny, 0.0);
-    grid_tempy.resize(nx, ny);
-    grid_tempy.assign(nx, ny, 0.0);
-    du.resize(nx+1, ny);
-    du_temp.resize(nx+1, ny);
-    dv.resize(nx, ny+1);
-    dv_temp.resize(nx, ny+1);
-    drho.resize(nx, ny);
-    drho_temp.resize(nx, ny);
-    dT.resize(nx, ny);
-    dT_temp.resize(nx, ny);
-
-    du.assign(ni+1, nj, 0.0);
-    dv.assign(ni, nj+1, 0.0);
-    drho.assign(ni, nj, 0.0);
-    dT.assign(ni, nj, 0.0);
-
-    u_init.resize(nx+1, ny);
-    u_init.assign(nx+1, ny, 0.0);
-    v_init.resize(nx+1, ny);
-    v_init.assign(nx+1, ny, 0.0);
-    rho_init.resize(nx, ny);
-    rho_init.assign(nx, ny, 0.0);
-    temp_init.resize(nx, ny);
-    temp_init.assign(nx, ny, 0.0);
-
-	tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
-	{
-		int i = tIdx%ni; int j = tIdx / ni;
-		grid_x(i, j) = h*((float)i + 0.5);
-		grid_y(i, j) = h*((float)j + 0.5);
-	});
-
-}
-
-void BimocqSolver2D::initFGCmap(int nx, int ny, int N)
-{
-    grid_x.resize(nx, ny);
-    grid_xinit.resize(nx, ny);
-    grid_x_new.resize(nx, ny);
-    grid_y.resize(nx, ny);
-    grid_yinit.resize(nx, ny);
-    grid_y_new.resize(nx, ny);
-    du.resize(nx+1, ny);
-    du_temp.resize(nx+1, ny);
-    dv.resize(nx, ny+1);
-    dv_temp.resize(nx, ny+1);
-    drho.resize(nx, ny);
-    drho_temp.resize(nx, ny);
-    dT.resize(nx, ny);
-    dT_temp.resize(nx, ny);
-
-    du.assign(ni+1, nj, 0.0);
-    u.assign(ni+1, nj, 0.0);
-    dv.assign(ni, nj+1, 0.0);
-    v.assign(ni, nj+1, 0.0);
-    drho.assign(ni, nj, 0.0);
-    dT.assign(ni, nj, 0.0);
-
-    u_init.resize(nx+1, ny);
-    u_init.assign(nx+1, ny, 0.0);
-    v_init.resize(nx, ny+1);
-    v_init.assign(nx, ny+1, 0.0);
-    rho_init.resize(nx, ny);
-    rho_init.assign(nx, ny, 0.0);
-    temp_init.resize(nx, ny);
-    temp_init.assign(nx, ny, 0.0);
-    du_temp.assign(0);
-    dv_temp.assign(0);
-    index_x.resize(nx, ny);
-    index_y.resize(nx, ny);
-    max_dist.resize(nx, ny);
-    tbb::parallel_for((int)0, ni*nj, 1, [&](int tIdx)
-    {
-        int i = tIdx%ni; int j = tIdx / ni;
-        grid_x(i, j) = h*((float)i + 0.5);
-        grid_xinit(i, j) = h*((float)i + 0.5);
-        grid_y(i, j) = h*((float)j + 0.5);
-        grid_yinit(i, j) = h*((float)j + 0.5);
-        grid_pre_x(i,j) = h*((float)i + 0.5);
-        grid_pre_y(i,j) = h*((float)j + 0.5);
-    });
-}
-
-void BimocqSolver2D::init_interpolate(int nx, int ny, float L)
-{
-    h = L/(float)nx;
-    ni = nx;
-    nj = ny;
-    u.resize(nx + 1, ny);
-    v.resize(nx, ny + 1);
-    rho.resize(nx, ny);
 }
 
 void BimocqSolver2D::emitSmoke()
