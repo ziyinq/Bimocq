@@ -66,8 +66,8 @@ void writeBMP(const char* filename, unsigned int w, unsigned int h, float *pixel
 			int x = i; int y = (h - 1) - j;
 			if (pixels[j*w + i] < 0) pixels[j*w + i] = 0;
 			if (pixels[j*w + i] > 1) pixels[j*w + i] = 1;
-			unsigned char r = pixels[j*w + i] * 0;
-			unsigned char g = pixels[j*w + i] * 0;
+			unsigned char r = pixels[j*w + i] * 255;
+			unsigned char g = pixels[j*w + i] * 255;
 			unsigned char b = pixels[j*w + i] * 255;
 			if (r > 255) r = 255;
 			if (g > 255) g = 255;
