@@ -130,7 +130,7 @@ public:
         pos[0] = min(max(h, pos[0]),(float)ni*h-h);
         pos[1] = min(max(h, pos[1]),(float)nj*h-h);
     }
-    BimocqSolver2D(int nx, int ny, float dt, float L, float b_coeff, int N, bool bc, Scheme s_scheme);
+    BimocqSolver2D(int nx, int ny, float L, float b_coeff, int N, bool bc, Scheme s_scheme);
     ~BimocqSolver2D() {};
     int ni, nj;
     inline	float lerp(float v0, float v1, float c);
@@ -138,9 +138,9 @@ public:
     void semiLagAdvect(const Array2f &src, Array2f & dst, float dt, int ni, int nj, float off_x, float off_y);
     void solveMaccormack(const Array2f &src, Array2f &dst, Array2f & aux, float dt, int ni, int nj, float offsetx, float offsety);
     void solveBFECC(const Array2f &src, Array2f &dst, Array2f & aux, float dt, int ni, int nj, float offsetx, float offsety);
-    void applyBouyancyForce(float dt);
+    void applyBuoyancyForce(float dt);
     void calculateCurl();
-    void projection(float tol, bool bc);
+    void projection(float tol, bool PURE_NEUMANN);
     void seedParticles(int N);
 
     void resampleVelBuffer(float dt);
@@ -164,11 +164,11 @@ public:
     void accumulateVelocity(Array2f &u_change, Array2f &v_change, float proj_coeff, bool error_correction);
     void accumulateScalars(Array2f &rho_change, Array2f &T_change, bool error_correction);
 
-    void buildMultiGrid();
+    void buildMultiGrid(bool PURE_NEUMANN);
     void diffuseField(float nu, float dt, Array2f &field);
     void applyVelocityBoundary();
 
-    void initParticleVelocity();
+    void sampleParticlesFromGrid();
 
     void correctScalars(Array2f &semi_rho, Array2f &semi_T);
     void correctVelocity(Array2f &semi_u, Array2f &semi_v);
@@ -179,80 +179,21 @@ public:
     inline Vec2f solveODEDMC(float dt, Vec2f &pos);
     inline Vec2f traceDMC(float dt, Vec2f &pos, Vec2f &a);
 
-    double computeEnergy();
-
-    void setInitDensity(float h, Array2f &buffer, Array2f &buffer_sec);
+    void setInitReyleighTaylor(float layer_height);
     void setInitVelocity(float distance);
     void setInitLeapFrog(float dist1, float dist2, float rho_h, float rho_w);
+    void setInitZalesak();
+    void setInitVortexBox();
     void setSmoke(float smoke_rise, float smoke_drop);
-    void setEmitter(float x, float y, float r)
-    {
-        emitterMask.assign(ni, nj, (char)0);
-        for (int j = 0;j < nj;j++)for (int i = 0;i < ni;i++)
-            {
-                Vec2f pos = h*(Vec2f(i, j) + Vec2f(0.5f));
-                if (sqrt((pos.v[0] - x)*(pos.v[0] - x) + (pos.v[1] - y)*(pos.v[1] - y)) <= r)
-                {
-                    emitterMask(i, j) = 1;
-                }
-            }
-    }
-    void setEmitter_a(float x, float y, float r, float u_vel, float v_vel)
-    {
-        emitterMaska.assign(ni, nj, (char)0);
-        for (int j = 0;j < nj;j++)for (int i = 0;i < ni;i++)
-            {
-                Vec2f pos = h*(Vec2f(i, j) + Vec2f(0.5f));
-                Vec2f pos_u = h*(Vec2f(i, j) + Vec2f(0.0, 0.5f));
-                Vec2f pos_v = h*(Vec2f(i, j) + Vec2f(0.5, 0.0f));
-                if (sqrt((pos.v[0] - x)*(pos.v[0] - x) + (pos.v[1] - y)*(pos.v[1] - y)) <= r)
-                {
-                    emitterMaska(i, j) = 1;
-                }
-                if (sqrt((pos_u.v[0] - x)*(pos_u.v[0] - x) + (pos_u.v[1] - y)*(pos_u.v[1] - y)) <= r)
-                {
-                    u(i, j) = u_vel;
-                }
-                if (sqrt((pos_v.v[0] - x)*(pos_v.v[0] - x) + (pos_v.v[1] - y)*(pos_v.v[1] - y)) <= r)
-                {
-                    v(i, j) = v_vel;
-                }
-            }
 
-    }
     float maxVel();
     float estimateDistortion(Array2f &back_x, Array2f &back_y, Array2f &fwd_x, Array2f &fwd_y);
 	inline Vec2f traceRK3(float dt, Vec2f &pos);
     inline Vec2f solveODE(float dt, Vec2f &pos);
     void emitSmoke();
-    void outputDensity(std::string folder, std::string file, int i, bool color_density)
-    {
-        std::string filestr;
-        filestr = folder + file + std::string("_\%05d.bmp");
-        char filename[1024];
-        sprintf(filename, filestr.c_str(), i);
-        writeBMP(filename, ni, nj, rho.a.data);
-    }
-
-    void outputVortVisualized(std::string folder, std::string file, int i)
-    {
-        boost::filesystem::create_directories(folder);
-        std::string filestr;
-        filestr = folder + file + std::string("\%04d.bmp");
-        char filename[1024];
-        sprintf(filename, filestr.c_str(), i);
-        std::vector<Vec3uc> color;
-        color.resize(ni*nj);
-        tbb::parallel_for((int)0, (int)(ni*nj), 1, [&](int tIdx)
-        {
-            int i = tIdx%ni;
-            int j = tIdx/ni;
-
-            float vort = 0.25*(curl(i,j)+curl(i+1,j)+curl(i,j+1)+curl(i+1,j+1));
-            color[j*ni + i] = cBar.toRGB(fabs(vort));
-        });
-        wrtieBMPuc3(filename, ni, nj, (unsigned char*)(&(color[0])));
-    }
+    void outputDensity(std::string folder, std::string file, int i, bool color_density);
+    void outputVortVisualized(std::string folder, std::string file, int i);
+    void outputLevelset(std::string sdfFilename, int i);
 
     color_bar cBar;
     int total_resampleCount = 0;

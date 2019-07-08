@@ -11,12 +11,10 @@ typedef struct {
 	unsigned char G;
 	unsigned char R;
 } pixel;
-void writeBMPboundary(const char* filename, unsigned int w, unsigned int h, float *pixels, unsigned char* boundary);
 void writeBMP(const char* filename, unsigned int w, unsigned int h, float *pixels);
 void writeBMPColor(const char* filename, unsigned int w, unsigned int h, float *first, float *second);
 //supply an array of pixels[height][width] <- notice that height comes first
 void wrtieBMPuc3 (const char* filename, unsigned int w, unsigned int h, unsigned char *pixels);
-unsigned char* readBMP(char* filename);
 #endif // !__WRITE_BMP__
 
 

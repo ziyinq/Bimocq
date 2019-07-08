@@ -27,13 +27,19 @@ sudo apt-get install libtbb-dev libopenvdb-dev libboost-all-dev
 ```
 This code is built and tested on Ubuntu 16.04 and 18.04, and tested with SM_6X GPUs and above.
 
-2D code and 3D code are seperated, you can execute them seperately. For 2D code, you should specify simulation method as the second input parameter. 0~7 are Semi-Lagrangian, MacCormack, BFECC, Mac_Reflection, FLIP, APIC, PolyPIC, BiMocq method respectively.
+2D code and 3D code are seperated, you can execute them seperately. 
+
+For 2D code, you should specify simulation method as the second input parameter: 0~7 are Semi-Lagrangian, MacCormack, BFECC, Mac_Reflection, FLIP, APIC, PolyPIC, BiMocq method respectively.
+Third parameter is the example case you wish to run, 0~5 represents Taylor Vortex, Vortex-Leapfrogging, Rayleigh-Taylor, Zalesak's disc and Vortex in a Box respectively.
 ```
 mkdir build
 cd build && cmake ..
 make
-./BIMOCQ2D sim_method
-./BIMOCQ2D
+./BiMocq2D sim_method sim_setup
+```
+For 3D code, we provide two vortex colliding setup, simply run
+```
+./BiMocq3D
 ```
 Generated .vdb file will be located in BIMOCQ/Out folder, you can use any software(e.g. Houdini) to visualize.
 ## BibTex 

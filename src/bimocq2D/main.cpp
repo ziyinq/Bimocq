@@ -11,6 +11,8 @@ int main(int argc, char** argv)
     int ny;
     // time step
     float dt;
+    // allowed maximum CFL
+    float CFL;
     // particle per cell
     int N;
     // simulation domain length in x-direction
@@ -23,102 +25,182 @@ int main(int argc, char** argv)
     float smoke_rise;
     float smoke_drop;
     // use Neumann boundary or not
-    bool neumann_boundary;
+    bool PURE_NEUMANN;
     Scheme sim_scheme;
-    if (argc != 2)
+    int sim_name = 0;
+    int example = 0;
+    if (argc != 3)
     {
         std::cout << "Please specify correct parameters!" << std::endl;
         exit(0);
     }
+    sim_name = atoi(argv[1]);
+    example = atoi(argv[2]);
 
-    if (0)
+    switch(example)
     {
-        nx = 256;
-        ny = 256;
-        dt = 0.025;
-        N = 4;
-        L = 2.f*M_PI;
-        total_frame = 300;
-        vorticity_distance = 0.81;
-        smoke_rise = 0.f;
-        smoke_drop = 0.f;
-        blend_coeff = 1.f;
-        neumann_boundary = false;
-        sim_scheme = static_cast<Scheme>(atoi(argv[1]));
-        std::string filepath = "../Out/2D_Taylor_vortex/" + enumToString(sim_scheme) + "/";
-        std::string filename = enumToString(sim_scheme) + "_dt_" + std::to_string(dt).substr(0,5) + "_dist_" + std::to_string(vorticity_distance).substr(0,4) +"_";
-        BimocqSolver2D smokeSimulator(nx, ny, dt, L, blend_coeff, N, neumann_boundary, sim_scheme);
-        smokeSimulator.setSmoke(smoke_rise, smoke_drop);
-        smokeSimulator.buildMultiGrid();
-        smokeSimulator.setInitVelocity(vorticity_distance);
-        smokeSimulator.initParticleVelocity();
-        for (int i = 0; i < total_frame; i++)
+        // 2D Taylor-vortex example
+        case 0:
         {
-            smokeSimulator.advance(dt, i);
-            smokeSimulator.calculateCurl();
-            smokeSimulator.outputVortVisualized(filepath, filename, i);
+            nx = 256;
+            ny = 256;
+            dt = 0.025;
+            N = 4;
+            L = 2.f*M_PI;
+            total_frame = 300;
+            vorticity_distance = 0.81;
+            smoke_rise = 0.f;
+            smoke_drop = 0.f;
+            blend_coeff = 1.f;
+            PURE_NEUMANN = false;
+            sim_scheme = static_cast<Scheme>(sim_name);
+            std::string filepath = "../Out/2D_Taylor_vortex/" + enumToString(sim_scheme) + "/";
+            std::string filename = enumToString(sim_scheme) + "_dt_" + std::to_string(dt).substr(0,5) + "_dist_" + std::to_string(vorticity_distance).substr(0,4) +"_";
+            BimocqSolver2D smokeSimulator(nx, ny, L, blend_coeff, N, PURE_NEUMANN, sim_scheme);
+            smokeSimulator.setSmoke(smoke_rise, smoke_drop);
+            smokeSimulator.buildMultiGrid(PURE_NEUMANN);
+            smokeSimulator.setInitVelocity(vorticity_distance);
+            smokeSimulator.sampleParticlesFromGrid();
+            for (int i = 0; i < total_frame; i++)
+            {
+                smokeSimulator.advance(dt, i);
+                smokeSimulator.calculateCurl();
+                smokeSimulator.outputVortVisualized(filepath, filename, i);
+            }
         }
-    }
-    else if (1)
-    {
-        nx = 256;
-        ny = 256;
-        dt = 0.025;
-        N = 4;
-        L = 2.f*M_PI;
-        total_frame = 2000;
-        smoke_rise = 0.f;
-        smoke_drop = 0.f;
-        blend_coeff = 1.f;
-        neumann_boundary = false;
-        sim_scheme = static_cast<Scheme>(atoi(argv[1]));
-        std::string filepath = "../Out/2D_Leapfrog/" + enumToString(sim_scheme) + "/";
-        std::string filename = enumToString(sim_scheme) + "_dt_" + std::to_string(dt).substr(0,5) + "_dist_" + std::to_string(vorticity_distance).substr(0,4) +"_";
-        BimocqSolver2D smokeSimulator(nx, ny, dt, L, blend_coeff, N, neumann_boundary, sim_scheme);
-        smokeSimulator.setSmoke(smoke_rise, smoke_drop);
-        smokeSimulator.buildMultiGrid();
-        smokeSimulator.setInitLeapFrog(1.5, 3.0, M_PI-1.6, 0.3);
-        smokeSimulator.applyVelocityBoundary();
-        smokeSimulator.initParticleVelocity();
-        for (int i = 0; i < total_frame; i++)
+        break;
+        // 2D Vortex-leapfrogging example
+        case 1:
         {
-            smokeSimulator.advance(dt, i);
-            smokeSimulator.calculateCurl();
-            smokeSimulator.outputVortVisualized(filepath, filename, i);
-            smokeSimulator.outputDensity(filepath, "density", i, false);
+            nx = 256;
+            ny = 256;
+            dt = 0.025;
+            N = 4;
+            L = 2.f*M_PI;
+            total_frame = 2000;
+            smoke_rise = 0.f;
+            smoke_drop = 0.f;
+            blend_coeff = 1.f;
+            PURE_NEUMANN = false;
+            sim_scheme = static_cast<Scheme>(sim_name);
+            std::string filepath = "../Out/2D_Leapfrog/" + enumToString(sim_scheme) + "/";
+            std::string filename = enumToString(sim_scheme) + "_dt_" + std::to_string(dt).substr(0,5) +"_";
+            BimocqSolver2D smokeSimulator(nx, ny, L, blend_coeff, N, PURE_NEUMANN, sim_scheme);
+            smokeSimulator.setSmoke(smoke_rise, smoke_drop);
+            smokeSimulator.buildMultiGrid(PURE_NEUMANN);
+            smokeSimulator.setInitLeapFrog(1.5, 3.0, M_PI-1.6, 0.3);
+            smokeSimulator.applyVelocityBoundary();
+            smokeSimulator.sampleParticlesFromGrid();
+            for (int i = 0; i < total_frame; i++)
+            {
+                smokeSimulator.advance(dt, i);
+                smokeSimulator.calculateCurl();
+                smokeSimulator.outputVortVisualized(filepath, filename, i);
+                smokeSimulator.outputDensity(filepath, "density", i, false);
+            }
         }
-    }
-    else if (1)
-    {
-        nx = 256;
-        ny = 1280;
-        dt = 0.025;
-        N = 4;
-        L = 2.f*M_PI;
-        total_frame = 1000;
-        smoke_rise = 0.2f;
-        smoke_drop = 0.05f;
-        blend_coeff = 1.f;
-        neumann_boundary = false;
-        sim_scheme = static_cast<Scheme>(atoi(argv[1]));
-        std::string filepath = "../Out/2D_Leapfrog/" + enumToString(sim_scheme) + "/";
-        std::string filename = enumToString(sim_scheme) + "_dt_" + std::to_string(dt).substr(0,5) + "_dist_" + std::to_string(vorticity_distance).substr(0,4) +"_";
-        BimocqSolver2D smokeSimulator(nx, ny, dt, L, blend_coeff, N, neumann_boundary, sim_scheme);
-        smokeSimulator.setSmoke(smoke_rise, smoke_drop);
-        smokeSimulator.buildMultiGrid();
-        smokeSimulator.setInitLeapFrog(1.5, 3.0, M_PI-1.6, 0.3);
-        smokeSimulator.applyVelocityBoundary();
-        smokeSimulator.initParticleVelocity();
-        for (int i = 0; i < total_frame; i++)
+        break;
+        // 2D Rayleigh-Taylor example
+        case 2:
         {
-            smokeSimulator.advance(dt, i);
-            smokeSimulator.calculateCurl();
-            smokeSimulator.outputVortVisualized(filepath, filename, i);
-            smokeSimulator.outputDensity(filepath, "density", i, false);
+            nx = 256;
+            ny = 1280;
+            dt = 0.01;
+            N = 4;
+            L = 0.2;
+            total_frame = 1000;
+            smoke_rise = 0.2f;
+            smoke_drop = 0.05f;
+            blend_coeff = 1.f;
+            PURE_NEUMANN = true;
+            sim_scheme = static_cast<Scheme>(atoi(argv[1]));
+            std::string filepath = "../Out/2D_RayleighTaylor/" + enumToString(sim_scheme) + "/";
+            std::string filename = enumToString(sim_scheme) + "_dt_" + std::to_string(dt).substr(0,5) +"_";
+            BimocqSolver2D smokeSimulator(nx, ny, L, blend_coeff, N, PURE_NEUMANN, sim_scheme);
+            smokeSimulator.setSmoke(smoke_rise, smoke_drop);
+            smokeSimulator.buildMultiGrid(PURE_NEUMANN);
+            smokeSimulator.setInitReyleighTaylor(0.5f * L * ny / nx);
+            smokeSimulator.sampleParticlesFromGrid();
+            for (int i = 0; i < total_frame; i++)
+            {
+                smokeSimulator.advance(dt, i);
+                smokeSimulator.outputDensity(filepath, "density", i, true);
+            }
         }
+        break;
+        // 2D Zalesak's disk example
+        case 3:
+        {
+            nx = 200;
+            ny = 200;
+            CFL = 0.75;
+            N = 4;
+            L = 1;
+            total_frame = 1000;
+            smoke_rise = 0.2f;
+            smoke_drop = 0.05f;
+            blend_coeff = 1.f;
+            PURE_NEUMANN = true;
+            sim_scheme = static_cast<Scheme>(atoi(argv[1]));
+            std::string filepath = "../Out/2D_Zalesak/" + enumToString(sim_scheme) + "/";
+            std::string filename = enumToString(sim_scheme) + "_";
+            BimocqSolver2D smokeSimulator(nx, ny, L, blend_coeff, N, PURE_NEUMANN, sim_scheme);
+            smokeSimulator.setSmoke(smoke_rise, smoke_drop);
+            smokeSimulator.buildMultiGrid(PURE_NEUMANN);
+            smokeSimulator.setInitZalesak();
+            smokeSimulator.sampleParticlesFromGrid();
+            for (int i = 0; i < total_frame; i++)
+            {
+                float frame_dt = 0.01;
+                float T = 0.f;
+                float substep = CFL*smokeSimulator.h/smokeSimulator.maxVel();
+                while (T < frame_dt)
+                {
+                    if (T + substep > frame_dt) substep = frame_dt - T;
+                    smokeSimulator.advance(substep, i);
+                    T += substep;
+                }
+                smokeSimulator.outputLevelset(filepath, i);
+            }
+        }
+        break;
+        // 2D Vortex in a Box example
+        case 4:
+        {
+            nx = 512;
+            ny = 512;
+            CFL = 0.5;
+            N = 4;
+            L = 1;
+            total_frame = 1000;
+            smoke_rise = 0.2f;
+            smoke_drop = 0.05f;
+            blend_coeff = 1.f;
+            PURE_NEUMANN = true;
+            sim_scheme = static_cast<Scheme>(atoi(argv[1]));
+            std::string filepath = "../Out/2D_VortexBox/" + enumToString(sim_scheme) + "/";
+            std::string filename = enumToString(sim_scheme) + "_";
+            BimocqSolver2D smokeSimulator(nx, ny, L, blend_coeff, N, PURE_NEUMANN, sim_scheme);
+            smokeSimulator.setSmoke(smoke_rise, smoke_drop);
+            smokeSimulator.buildMultiGrid(PURE_NEUMANN);
+            smokeSimulator.setInitVortexBox();
+            smokeSimulator.sampleParticlesFromGrid();
+            for (int i = 0; i < total_frame; i++)
+            {
+                float frame_dt = 0.01;
+                float T = 0.f;
+                float substep = CFL*smokeSimulator.h/smokeSimulator.maxVel();
+                while (T < frame_dt)
+                {
+                    if (T + substep > frame_dt) substep = frame_dt - T;
+                    smokeSimulator.advance(substep, i);
+                    T += substep;
+                }
+                smokeSimulator.outputLevelset(filepath, i);
+            }
+        }
+        break;
     }
-
-
 
     return 0;
 }
