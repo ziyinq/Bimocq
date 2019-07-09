@@ -29,8 +29,8 @@ This code is built and tested on Ubuntu 16.04 and 18.04, and tested with SM_6X G
 
 2D code and 3D code are seperated, you can execute them seperately. 
 
-For 2D code, you should specify simulation method as the second input parameter. 0~7 are Semi-Lagrangian, MacCormack, BFECC, Mac_Reflection, FLIP, APIC, PolyPIC, BiMocq method respectively.
-Third parameter is the example case you wish to run, 0~4 represents Taylor Vortex, Vortex-Leapfrogging, Rayleigh-Taylor, Zalesak's disc and Vortex in a Box respectively.
+For 2D code, you should specify simulation method as the second input parameter. 0-7 are Semi-Lagrangian, MacCormack, BFECC, Mac_Reflection, FLIP, APIC, PolyPIC, BiMocq method respectively.
+Third parameter is the example case you wish to run, 0-4 represents Taylor Vortex, Vortex-Leapfrogging, Rayleigh-Taylor, Zalesak's disc and Vortex in a Box respectively.
 ```
 mkdir build
 cd build && cmake ..
