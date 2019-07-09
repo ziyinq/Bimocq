@@ -282,6 +282,7 @@ public:
     float blend_coeff;
     bool use_neumann_boundary;
     Scheme sim_scheme;
+    bool advect_levelset = false;
 };
 
 #endif //BIMOCQSOLVER2D_H

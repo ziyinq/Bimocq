@@ -42,6 +42,7 @@ int main(int argc, char** argv)
         // 2D Taylor-vortex example
         case 0:
         {
+            std::cout << GREEN << "Start running 2D Taylor Vortex example!!!" << RESET << std::endl;
             nx = 256;
             ny = 256;
             dt = 0.025;
@@ -72,6 +73,7 @@ int main(int argc, char** argv)
         // 2D Vortex-leapfrogging example
         case 1:
         {
+            std::cout << GREEN << "Start running 2D Vortex Leapfrogging example!!!" << RESET << std::endl;
             nx = 256;
             ny = 256;
             dt = 0.025;
@@ -103,6 +105,7 @@ int main(int argc, char** argv)
         // 2D Rayleigh-Taylor example
         case 2:
         {
+            std::cout << GREEN << "Start running 2D Rayleigh Taylor example!!!" << RESET << std::endl;
             nx = 256;
             ny = 1280;
             dt = 0.01;
@@ -131,32 +134,41 @@ int main(int argc, char** argv)
         // 2D Zalesak's disk example
         case 3:
         {
+            std::cout << GREEN << "Start running 2D Zalesak's Disk example!!!" << RESET << std::endl;
             nx = 200;
             ny = 200;
             CFL = 0.75;
             N = 4;
             L = 1;
-            total_frame = 1000;
-            smoke_rise = 0.2f;
-            smoke_drop = 0.05f;
+            total_frame = 315;
+            smoke_rise = 0.f;
+            smoke_drop = 0.f;
             blend_coeff = 1.f;
             PURE_NEUMANN = true;
             sim_scheme = static_cast<Scheme>(atoi(argv[1]));
+            if (sim_scheme == FLIP || sim_scheme == APIC || sim_scheme == POLYPIC)
+            {
+                std::cout << "Simulation scheme for levelset is not supported!" << std::endl;
+                exit(0);
+            }
             std::string filepath = "../Out/2D_Zalesak/" + enumToString(sim_scheme) + "/";
             std::string filename = enumToString(sim_scheme) + "_";
             BimocqSolver2D smokeSimulator(nx, ny, L, blend_coeff, N, PURE_NEUMANN, sim_scheme);
+            smokeSimulator.advect_levelset = true;
             smokeSimulator.setSmoke(smoke_rise, smoke_drop);
             smokeSimulator.buildMultiGrid(PURE_NEUMANN);
             smokeSimulator.setInitZalesak();
-            smokeSimulator.sampleParticlesFromGrid();
-            for (int i = 0; i < total_frame; i++)
+            smokeSimulator.outputLevelset(filepath, 0);
+            for (int i = 1; i < total_frame; i++)
             {
-                float frame_dt = 0.01;
+                float frame_dt = 2;
                 float T = 0.f;
                 float substep = CFL*smokeSimulator.h/smokeSimulator.maxVel();
+                std::cout << substep << std::endl;
                 while (T < frame_dt)
                 {
                     if (T + substep > frame_dt) substep = frame_dt - T;
+                    std::cout << "current CFL is: " << substep*smokeSimulator.maxVel()/smokeSimulator.h << std::endl;
                     smokeSimulator.advance(substep, i);
                     T += substep;
                 }
@@ -167,25 +179,32 @@ int main(int argc, char** argv)
         // 2D Vortex in a Box example
         case 4:
         {
+            std::cout << GREEN << "Start running 2D Vortex in a Box example!!!" << RESET << std::endl;
             nx = 512;
             ny = 512;
             CFL = 0.5;
             N = 4;
             L = 1;
-            total_frame = 1000;
-            smoke_rise = 0.2f;
-            smoke_drop = 0.05f;
+            total_frame = 500;
+            smoke_rise = 0.f;
+            smoke_drop = 0.f;
             blend_coeff = 1.f;
             PURE_NEUMANN = true;
             sim_scheme = static_cast<Scheme>(atoi(argv[1]));
+            if (sim_scheme == FLIP || sim_scheme == APIC || sim_scheme == POLYPIC)
+            {
+                std::cout << "Simulation scheme for levelset is not supported!" << std::endl;
+                exit(0);
+            }
             std::string filepath = "../Out/2D_VortexBox/" + enumToString(sim_scheme) + "/";
             std::string filename = enumToString(sim_scheme) + "_";
             BimocqSolver2D smokeSimulator(nx, ny, L, blend_coeff, N, PURE_NEUMANN, sim_scheme);
+            smokeSimulator.advect_levelset = true;
             smokeSimulator.setSmoke(smoke_rise, smoke_drop);
             smokeSimulator.buildMultiGrid(PURE_NEUMANN);
             smokeSimulator.setInitVortexBox();
-            smokeSimulator.sampleParticlesFromGrid();
-            for (int i = 0; i < total_frame; i++)
+            smokeSimulator.outputLevelset(filepath, 0);
+            for (int i = 1; i < total_frame; i++)
             {
                 float frame_dt = 0.01;
                 float T = 0.f;
@@ -193,6 +212,8 @@ int main(int argc, char** argv)
                 while (T < frame_dt)
                 {
                     if (T + substep > frame_dt) substep = frame_dt - T;
+                    std::cout << "current CFL is: " << substep*smokeSimulator.maxVel()/smokeSimulator.h << std::endl;
+                    std::cout << "current dt is: " << substep << std::endl;
                     smokeSimulator.advance(substep, i);
                     T += substep;
                 }

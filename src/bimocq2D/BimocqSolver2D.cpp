@@ -404,7 +404,7 @@ void BimocqSolver2D::advanceBIMOCQ(float dt, int currentframe)
 
     float proj_coeff = 2.0;
     getCFL();
-    if (currentframe != 0)
+    if (currentframe != 0 && !advect_levelset)
     {
         u = u_temp;
         v = v_temp;
@@ -413,31 +413,37 @@ void BimocqSolver2D::advanceBIMOCQ(float dt, int currentframe)
     resampleCount++;
 
     /// update Backward & Forward mapping
-    updateForward(dt, forward_x, forward_y);
+    if (!advect_levelset)
+    {
+        updateForward(dt, forward_x, forward_y);
+        updateBackward(dt, backward_x, backward_y);
+    }
     updateForward(dt, forward_scalar_x, forward_scalar_y);
-    updateBackward(dt, backward_x, backward_y);
     updateBackward(dt, backward_scalar_x, backward_scalar_y);
 
     Array2f semi_u, semi_v, semi_rho, semi_T;
-    semi_u.resize(ni+1, nj, 0.0);
-    semi_v.resize(ni, nj+1, 0.0);
+    semi_u.resize(ni + 1, nj, 0.0);
+    semi_v.resize(ni, nj + 1, 0.0);
     semi_rho.resize(ni, nj, 0.0);
     semi_T.resize(ni, nj, 0.0);
     semiLagAdvect(rho, semi_rho, dt, ni, nj, 0.5, 0.5);
     semiLagAdvect(temperature, semi_T, dt, ni, nj, 0.5, 0.5);
-    semiLagAdvect(u, semi_u, dt, ni+1, nj, 0.0, 0.5);
-    semiLagAdvect(v, semi_v, dt, ni, nj+1, 0.5, 0.0);
+    semiLagAdvect(u, semi_u, dt, ni + 1, nj, 0.0, 0.5);
+    semiLagAdvect(v, semi_v, dt, ni, nj + 1, 0.5, 0.0);
 
     Array2f u_presave;
     Array2f v_presave;
     u_presave = u;
     v_presave = v;
     /// advect U,V
-    advectVelocity(semi_u, semi_v);
-    correctVelocity(semi_u, semi_v);
+    if (!advect_levelset)
+    {
+        advectVelocity(semi_u, semi_v);
+        correctVelocity(semi_u, semi_v);
+    }
     /// advect Rho, T
     advectScalars(semi_rho, semi_T);
-    correctScalars(semi_rho, semi_T);
+    if (!advect_levelset) correctScalars(semi_rho, semi_T);
 
     Array2f u_save;
     Array2f v_save;
@@ -456,7 +462,7 @@ void BimocqSolver2D::advanceBIMOCQ(float dt, int currentframe)
     u_save = u;
     v_save = v;
 
-    projection(1e-6, use_neumann_boundary);
+    if (!advect_levelset) projection(1e-6, use_neumann_boundary);
     float d_vel = estimateDistortion(backward_x, backward_y, forward_x, forward_y);
     float d_scalar = estimateDistortion(backward_scalar_x, backward_scalar_y, forward_scalar_x, forward_scalar_y);
     float vel = maxVel();
@@ -464,23 +470,26 @@ void BimocqSolver2D::advanceBIMOCQ(float dt, int currentframe)
     std::cout << "Scalars remapping condition:" << d_scalar / (vel * dt) << std::endl;
 
     bool vel_remapping = ((d_vel / (vel * dt))>1.0 ||currentframe-lastremeshing>=8);
-    bool rho_remapping = ((d_scalar / (vel * dt))>10.0 ||currentframe-rho_lastremeshing>=50);
+    bool rho_remapping = ((d_scalar / (vel * dt))>1.0 ||currentframe-rho_lastremeshing>=20);
 
     if (vel_remapping)
         proj_coeff = 1.0;
 
-    // calculate the field difference
-    du_proj = u; du_proj -= u_save;
-    dv_proj = v; dv_proj -= v_save;
-    drho_temp = rho; drho_temp -= rho_save;
-    dT_temp = temperature; dT_temp -= T_save;
+    if (!advect_levelset)
+    {
+        // calculate the field difference
+        du_proj = u; du_proj -= u_save;
+        dv_proj = v; dv_proj -= v_save;
+        drho_temp = rho; drho_temp -= rho_save;
+        dT_temp = temperature; dT_temp -= T_save;
 
-    /// cumulate du, dv
-    accumulateVelocity(du_temp, dv_temp, 1.0, false);
-    accumulateVelocity(du_proj, dv_proj, proj_coeff, false);
-    accumulateScalars(drho_temp, dT_temp, false);
+        /// cumulate du, dv
+        accumulateVelocity(du_temp, dv_temp, 1.0, false);
+        accumulateVelocity(du_proj, dv_proj, proj_coeff, false);
+        accumulateScalars(drho_temp, dT_temp, false);
+    }
 
-    if (vel_remapping)
+    if (vel_remapping && !advect_levelset)
     {
         lastremeshing = currentframe;
         resampleVelBuffer(dt);
@@ -517,21 +526,24 @@ void BimocqSolver2D::advanceSemilag(float dt, int currentframe)
     semiLagAdvect(rho, s_temp, dt, ni, nj, 0.5, 0.5);
     rho.assign(ni, nj, s_temp.a.data);
 
-    // Semi-Lagrangian advect temperature
-    s_temp.assign(ni, nj, 0.0f);
-    semiLagAdvect(temperature, s_temp, dt, ni, nj, 0.5, 0.5);
-    temperature.assign(ni, nj, s_temp.a.data);
+    if (!advect_levelset)
+    {
+        // Semi-Lagrangian advect temperature
+        s_temp.assign(ni, nj, 0.0f);
+        semiLagAdvect(temperature, s_temp, dt, ni, nj, 0.5, 0.5);
+        temperature.assign(ni, nj, s_temp.a.data);
 
-    // Semi-Lagrangian advect velocity
-    u_temp.assign(ni + 1, nj, 0.0f);
-    v_temp.assign(ni, nj + 1, 0.0f);
-    semiLagAdvect(u, u_temp, dt, ni + 1, nj, 0.0, 0.5);
-    semiLagAdvect(v, v_temp, dt, ni, nj + 1, 0.5, 0.0);
-    u.assign(ni + 1, nj, u_temp.a.data);
-    v.assign(ni, nj + 1, v_temp.a.data);
+        // Semi-Lagrangian advect velocity
+        u_temp.assign(ni + 1, nj, 0.0f);
+        v_temp.assign(ni, nj + 1, 0.0f);
+        semiLagAdvect(u, u_temp, dt, ni + 1, nj, 0.0, 0.5);
+        semiLagAdvect(v, v_temp, dt, ni, nj + 1, 0.5, 0.0);
+        u.assign(ni + 1, nj, u_temp.a.data);
+        v.assign(ni, nj + 1, v_temp.a.data);
 
-    applyBuoyancyForce(dt);
-    projection(1e-6,use_neumann_boundary);
+        applyBuoyancyForce(dt);
+        projection(1e-6,use_neumann_boundary);
+    }
 }
 
 void BimocqSolver2D::advanceReflection(float dt, int currentframe)
@@ -546,59 +558,61 @@ void BimocqSolver2D::advanceReflection(float dt, int currentframe)
     solveMaccormack(rho, rho_first, rho_sec, dt, ni, nj, 0.5, 0.5);
     rho = rho_first;
 
-    // advect rho
-    Array2f T_first;
-    Array2f T_sec;
-    T_first.assign(ni, nj, 0.0);
-    T_sec.assign(ni, nj, 0.0);
-    solveMaccormack(temperature, T_first, T_sec, dt, ni, nj, 0.5, 0.5);
-    temperature = T_first;
+    if (!advect_levelset)
+    {
+        // advect temperature
+        Array2f T_first;
+        Array2f T_sec;
+        T_first.assign(ni, nj, 0.0);
+        T_sec.assign(ni, nj, 0.0);
+        solveMaccormack(temperature, T_first, T_sec, dt, ni, nj, 0.5, 0.5);
+        temperature = T_first;
 
-    Array2f u_save;
-    Array2f v_save;
-    // step 1
-    u_first.assign(ni+1, nj, 0.0);
-    v_first.assign(ni, nj+1, 0.0);
-    u_sec.assign(ni+1, nj, 0.0);
-    v_sec.assign(ni, nj+1, 0.0);
-    solveMaccormack(u, u_first, u_sec, 0.5*dt, ni+1, nj, 0.0, 0.5);
-    solveMaccormack(v, v_first, v_sec, 0.5*dt, ni, nj+1, 0.5, 0.0);
+        Array2f u_save;
+        Array2f v_save;
+        // step 1
+        u_first.assign(ni+1, nj, 0.0);
+        v_first.assign(ni, nj+1, 0.0);
+        u_sec.assign(ni+1, nj, 0.0);
+        v_sec.assign(ni, nj+1, 0.0);
+        solveMaccormack(u, u_first, u_sec, 0.5*dt, ni+1, nj, 0.0, 0.5);
+        solveMaccormack(v, v_first, v_sec, 0.5*dt, ni, nj+1, 0.5, 0.0);
 
-    u = u_first;
-    v = v_first;
+        u = u_first;
+        v = v_first;
 
-    applyBuoyancyForce(0.5f*dt);
-    u_save = u;
-    v_save = v;
-    // step 2
-    projection(1e-6, use_neumann_boundary);
+        applyBuoyancyForce(0.5f*dt);
+        u_save = u;
+        v_save = v;
+        // step 2
+        projection(1e-6, use_neumann_boundary);
 
-    // step 3
-    tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
-        int i = tIdx%(ni+1);
-        int j = tIdx / (ni+1);
-        u_temp(i, j) = 2.0*u(i,j) - u_save(i,j);
-    });
-    tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
-        int i = tIdx%ni;
-        int j = tIdx / ni;
-        v_temp(i, j) = 2.0*v(i,j) - v_save(i,j);
-    });
+        // step 3
+        tbb::parallel_for((int)0, (ni+1)*nj, 1, [&](int tIdx) {
+            int i = tIdx%(ni+1);
+            int j = tIdx / (ni+1);
+            u_temp(i, j) = 2.0*u(i,j) - u_save(i,j);
+        });
+        tbb::parallel_for((int)0, ni*(nj+1), 1, [&](int tIdx) {
+            int i = tIdx%ni;
+            int j = tIdx / ni;
+            v_temp(i, j) = 2.0*v(i,j) - v_save(i,j);
+        });
 
-    // step 4
-    u_first.assign(ni+1, nj, 0.0);
-    v_first.assign(ni, nj+1, 0.0);
-    u_sec.assign(ni+1, nj, 0.0);
-    v_sec.assign(ni, nj+1, 0.0);
-    solveMaccormack(u_temp, u_first, u_sec, 0.5*dt, ni+1, nj, 0.0, 0.5);
-    solveMaccormack(v_temp, v_first, v_sec, 0.5*dt, ni, nj+1, 0.5, 0.0);
-    u = u_first;
-    v = v_first;
+        // step 4
+        u_first.assign(ni+1, nj, 0.0);
+        v_first.assign(ni, nj+1, 0.0);
+        u_sec.assign(ni+1, nj, 0.0);
+        v_sec.assign(ni, nj+1, 0.0);
+        solveMaccormack(u_temp, u_first, u_sec, 0.5*dt, ni+1, nj, 0.0, 0.5);
+        solveMaccormack(v_temp, v_first, v_sec, 0.5*dt, ni, nj+1, 0.5, 0.0);
+        u = u_first;
+        v = v_first;
 
-    applyBuoyancyForce(0.5f*dt);
-    // step 5
-    projection(1e-6, use_neumann_boundary);
-
+        applyBuoyancyForce(0.5f*dt);
+        // step 5
+        projection(1e-6, use_neumann_boundary);
+    }
 }
 
 void BimocqSolver2D::nostickBC()
@@ -1447,7 +1461,7 @@ void BimocqSolver2D::resampleVelBuffer(float dt)
 
 void BimocqSolver2D::resampleRhoBuffer(float dt)
 {
-    std::cout<< BLUE << "rho remeshing!\n" << RESET;
+    std::cout<< RED << "rho remeshing!\n" << RESET;
     total_scalar_resample ++;
     rho_orig = rho_init;
     rho_init = rho;
@@ -1756,6 +1770,7 @@ void BimocqSolver2D::diffuseField(float nu, float dt, Array2f &field)
 void BimocqSolver2D::advanceBFECC(float dt, int currentframe)
 {
     std::cout << BLUE <<  "BFECC scheme frame " << currentframe << " starts !" << RESET << std::endl;
+
     // advect rho
     Array2f rho_first;
     Array2f rho_sec;
@@ -1764,31 +1779,35 @@ void BimocqSolver2D::advanceBFECC(float dt, int currentframe)
     solveBFECC(rho, rho_first, rho_sec, dt, ni, nj, 0.5, 0.5);
     rho = rho_first;
 
-    // advect temperature
-    Array2f T_first;
-    Array2f T_sec;
-    T_first.assign(ni, nj, 0.0);
-    T_sec.assign(ni, nj, 0.0);
-    solveBFECC(temperature, T_first, T_sec, dt, ni, nj, 0.5, 0.5);
-    temperature = T_first;
+    if (!advect_levelset)
+    {
+        // advect temperature
+        Array2f T_first;
+        Array2f T_sec;
+        T_first.assign(ni, nj, 0.0);
+        T_sec.assign(ni, nj, 0.0);
+        solveBFECC(temperature, T_first, T_sec, dt, ni, nj, 0.5, 0.5);
+        temperature = T_first;
 
-    // advect velocity
-    u_first.assign(ni+1, nj, 0.0);
-    v_first.assign(ni, nj+1, 0.0);
-    u_sec.assign(ni+1, nj, 0.0);
-    v_sec.assign(ni, nj+1, 0.0);
-    solveBFECC(u, u_first, u_sec, dt, ni+1, nj, 0.0, 0.5);
-    solveBFECC(v, v_first, v_sec, dt, ni, nj+1, 0.5, 0.0);
-    u = u_first;
-    v = v_first;
+        // advect velocity
+        u_first.assign(ni+1, nj, 0.0);
+        v_first.assign(ni, nj+1, 0.0);
+        u_sec.assign(ni+1, nj, 0.0);
+        v_sec.assign(ni, nj+1, 0.0);
+        solveBFECC(u, u_first, u_sec, dt, ni+1, nj, 0.0, 0.5);
+        solveBFECC(v, v_first, v_sec, dt, ni, nj+1, 0.5, 0.0);
+        u = u_first;
+        v = v_first;
 
-    applyBuoyancyForce(dt);
-    projection(1e-6,use_neumann_boundary);
+        applyBuoyancyForce(dt);
+        projection(1e-6,use_neumann_boundary);
+    }
 }
 
 void BimocqSolver2D::advanceMaccormack(float dt, int currentframe)
 {
     std::cout << BLUE <<  "MacCormack scheme frame " << currentframe << " starts !" << RESET << std::endl;
+
     // advect rho
     Array2f rho_first;
     Array2f rho_sec;
@@ -1797,26 +1816,29 @@ void BimocqSolver2D::advanceMaccormack(float dt, int currentframe)
     solveMaccormack(rho, rho_first, rho_sec, dt, ni, nj, 0.5, 0.5);
     rho = rho_first;
 
-    // advect temperature
-    Array2f T_first;
-    Array2f T_sec;
-    T_first.assign(ni, nj, 0.0);
-    T_sec.assign(ni, nj, 0.0);
-    solveMaccormack(temperature, T_first, T_sec, dt, ni, nj, 0.5, 0.5);
-    temperature = T_first;
+    if (!advect_levelset)
+    {
+        // advect temperature
+        Array2f T_first;
+        Array2f T_sec;
+        T_first.assign(ni, nj, 0.0);
+        T_sec.assign(ni, nj, 0.0);
+        solveMaccormack(temperature, T_first, T_sec, dt, ni, nj, 0.5, 0.5);
+        temperature = T_first;
 
-    // advect velocity
-    u_first.assign(ni+1, nj, 0.0);
-    v_first.assign(ni, nj+1, 0.0);
-    u_sec.assign(ni+1, nj, 0.0);
-    v_sec.assign(ni, nj+1, 0.0);
-    solveMaccormack(u, u_first, u_sec, dt, ni+1, nj, 0.0, 0.5);
-    solveMaccormack(v, v_first, v_sec, dt, ni, nj+1, 0.5, 0.0);
-    u = u_first;
-    v = v_first;
+        // advect velocity
+        u_first.assign(ni+1, nj, 0.0);
+        v_first.assign(ni, nj+1, 0.0);
+        u_sec.assign(ni+1, nj, 0.0);
+        v_sec.assign(ni, nj+1, 0.0);
+        solveMaccormack(u, u_first, u_sec, dt, ni+1, nj, 0.0, 0.5);
+        solveMaccormack(v, v_first, v_sec, dt, ni, nj+1, 0.5, 0.0);
+        u = u_first;
+        v = v_first;
 
-    applyBuoyancyForce(dt);
-    projection(1e-6,use_neumann_boundary);
+        applyBuoyancyForce(dt);
+        projection(1e-6,use_neumann_boundary);
+    }
 }
 
 void BimocqSolver2D::seedParticles(int N)
@@ -2104,15 +2126,17 @@ void BimocqSolver2D::setInitZalesak()
         int i = tIdx % (ni + 1);
         int j = tIdx / (ni + 1);
         Vec2f pos = h * Vec2f(i, j) + h * Vec2f(0.0, 0.5);
-//        if(dist(pos, center) < 0.5*ni*h) u(i, j) = PI*(0.5*ni*h - pos.v[1]) / 314.f;
         u(i, j) = M_PI*(0.5*ni*h - pos.v[1]) / 314.f;
+        u_init(i, j) = M_PI*(0.5*ni*h - pos.v[1]) / 314.f;
+        u_origin(i, j) = M_PI*(0.5*ni*h - pos.v[1]) / 314.f;
     });
     tbb::parallel_for((int) 0, ni * (nj + 1), 1, [&](int tIdx) {
         int i = tIdx % ni;
         int j = tIdx / ni;
         Vec2f pos = h * Vec2f(i, j) + h * Vec2f(0.5, 0.0);
-//        if(dist(pos, center) < 0.5*ni*h) v(i, j) = PI*(pos.v[0] - 0.5*ni*h) / 314.f;
         v(i, j) = M_PI*(pos.v[0] - 0.5*ni*h) / 314.f;
+        v_init(i, j) = M_PI*(pos.v[0] - 0.5*ni*h) / 314.f;
+        v_origin(i, j) = M_PI*(pos.v[0] - 0.5*ni*h) / 314.f;
     });
 }
 
@@ -2355,6 +2379,7 @@ void BimocqSolver2D::outputVortVisualized(std::string folder, std::string file, 
 
 void BimocqSolver2D::outputLevelset(std::string sdfFilename, int i)
 {
+    boost::filesystem::create_directories(sdfFilename);
     std::ofstream foutU;
     std::string old_string = std::to_string(i);
     std::string new_string = std::string(4 - old_string.length(), '0') + old_string;
