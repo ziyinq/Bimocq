@@ -46,17 +46,6 @@ inline Vec2f BimocqSolver2D::solveODEDMC(float dt, Vec2f &pos)
 {
     Vec2f a = calculateA(pos, h);
     Vec2f opos=pos;
-    float T=dt;
-    float t = 0;
-    float substep = _cfl;
-//    while(t < T)
-//    {
-//        if(t + substep > T)
-//            substep = T - t;
-//        opos = traceDMC(-substep, opos, a);
-//        a = calculateA(opos, h);
-//        t+=substep;
-//    }
     opos = traceDMC(dt, opos, a);
     return opos;
 }
@@ -72,10 +61,10 @@ inline Vec2f BimocqSolver2D::traceDMC(float dt, Vec2f &pos, Vec2f &a)
     float new_x = pos[0] - dt*vel[0];
     float new_y = pos[1] - dt*vel[1];
     if (fabs(a[0]) >1e-4) new_x = pos[0] - (1-exp(-a[0]*dt))*vel[0]/(a[0]);
-    else new_x = solveODE(dt, pos)[0];
+    else new_x = solveODE(-dt, pos)[0];
 
     if (fabs(a[1]) >1e-4) new_y = pos[1] - (1-exp(-a[1]*dt))*vel[1]/(a[1]);
-    else new_y = solveODE(dt, pos)[1];
+    else new_y = solveODE(-dt, pos)[1];
     return Vec2f(new_x, new_y);
 }
 
